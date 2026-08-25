@@ -26,6 +26,12 @@ const TTL_RENEWAL_DIVISOR: u32 = 2;
 /// name — verified directly by this contract's maintenance-sweep tests.
 const MAX_MAINTENANCE_BATCH: u32 = 25;
 
+/// Maximum number of material IDs accepted by `check_entitlements_batch` in a
+/// single invocation. 50 persistent reads sit comfortably within Soroban's
+/// per-invocation footprint budget (hard limit ~100 entries) while covering
+/// a full marketplace feed page.
+const MAX_BATCH_ENTITLEMENTS: u32 = 50;
+
 /// Volume-tier discounted fee rates (basis points).
 /// Tier 1: 2.5 %, Tier 2: 1.5 %.
 const TIER1_FEE_BPS: u32 = 250;
@@ -708,6 +714,49 @@ impl PurchaseManager {
     /// Check if a buyer has an active entitlement for a material
     pub fn has_entitlement(env: Env, material_id: BytesN<32>, buyer: Address) -> bool {
         has_entitlement_internal(&env, &material_id, &buyer)
+    }
+
+    /// Batch-check entitlements for up to `MAX_BATCH_ENTITLEMENTS` (50) materials
+    /// in a single contract invocation.
+    ///
+    /// Returns a `Vec<bool>` of the same length as `material_ids`, where each
+    /// element is `true` iff the buyer holds an active entitlement for the
+    /// corresponding material.  The function is a pure view: it performs no
+    /// auth checks and changes no state.  Each per-entitlement read
+    /// automatically extends the record's persistent TTL (TTL policy #464
+    /// Tier D), so calling this from the marketplace feed keeps paid-for
+    /// records alive for free.
+    ///
+    /// If `material_ids` exceeds the cap the excess entries are silently
+    /// treated as `false` rather than panicking, keeping the caller's
+    /// responsibility simple.
+    pub fn check_entitlements_batch(
+        env: Env,
+        material_ids: Vec<BytesN<32>>,
+        buyer: Address,
+    ) -> Vec<bool> {
+        let len = material_ids.len();
+        let capped = if len > MAX_BATCH_ENTITLEMENTS {
+            MAX_BATCH_ENTITLEMENTS
+        } else {
+            len
+        };
+
+        let mut results = Vec::new(&env);
+        let mut i = 0u32;
+        while i < capped {
+            let material_id = material_ids.get_unchecked(i);
+            let entitled = has_entitlement_internal(&env, &material_id, &buyer);
+            results.push_back(entitled);
+            i += 1;
+        }
+
+        // Pad remaining slots (only reached when len > capped) with false
+        while results.len() < len {
+            results.push_back(false);
+        }
+
+        results
     }
 
     /// Get entitlement details for a buyer and material
