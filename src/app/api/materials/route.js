@@ -18,6 +18,31 @@ function sanitizeMaterial(doc) {
   return safe;
 }
 
+/**
+ * POST /api/materials
+ *
+ * Create a new educational material.
+ *
+ * @swagger
+ * /api/materials:
+ *   post:
+ *     summary: Create a new material
+ *     tags: [Materials]
+ *     description: Creates a new educational material for the authenticated user.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateMaterialRequest'
+ *     responses:
+ *       201:
+ *         description: Material created successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ */
 export async function POST(request) {
   return withApiHardening(
     request,
@@ -66,6 +91,23 @@ export async function POST(request) {
   );
 }
 
+/**
+ * GET /api/materials
+ *
+ * List all materials owned by the authenticated user.
+ *
+ * @swagger
+ * /api/materials:
+ *   get:
+ *     summary: List current user's materials
+ *     tags: [Materials]
+ *     description: Returns all materials owned by the authenticated user, sorted by creation date.
+ *     responses:
+ *       200:
+ *         description: Array of material objects
+ *       401:
+ *         description: Unauthorized
+ */
 export async function GET(request) {
   return withApiHardening(
     request,
@@ -105,6 +147,41 @@ export async function GET(request) {
   );
 }
 
+/**
+ * PUT /api/materials?id=<materialId>
+ *
+ * Update an existing material. Only the material owner can update.
+ *
+ * @swagger
+ * /api/materials:
+ *   put:
+ *     summary: Update an existing material
+ *     tags: [Materials]
+ *     description: Updates a material owned by the authenticated user.
+ *     parameters:
+ *       - name: id
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateMaterialRequest'
+ *     responses:
+ *       200:
+ *         description: Material updated
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Not found
+ */
 export async function PUT(request) {
   return withApiHardening(
     request,
@@ -173,6 +250,35 @@ export async function PUT(request) {
   );
 }
 
+/**
+ * DELETE /api/materials?id=<materialId>
+ *
+ * Permanently delete a material. Only the material owner can delete.
+ *
+ * @swagger
+ * /api/materials:
+ *   delete:
+ *     summary: Delete a material
+ *     tags: [Materials]
+ *     description: Permanently deletes a material owned by the authenticated user.
+ *     parameters:
+ *       - name: id
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Material deleted
+ *       400:
+ *         description: Invalid ID
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Not found
+ */
 export async function DELETE(request) {
   return withApiHardening(
     request,
