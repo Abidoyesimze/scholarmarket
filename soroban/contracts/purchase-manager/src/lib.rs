@@ -419,6 +419,16 @@ pub struct AdminTransferAcceptedEvent {
     pub new_admin: Address,
 }
 
+/// Event: admin.contract_upgraded (#28)
+#[contractevent(topics = ["admin", "contract_upgraded"], data_format = "vec")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ContractUpgradedEvent {
+    #[topic]
+    pub admin: Address,
+    #[topic]
+    pub new_wasm_hash: BytesN<32>,
+}
+
 /// Event: creator.tier_updated
 #[contractevent(topics = ["creator", "tier_updated"], data_format = "vec")]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1638,13 +1648,27 @@ impl PurchaseManager {
     }
 
     /// Upgrade contract WASM hash (admin only).
+    ///
+    /// Access control (#28): `auth::require_admin` enforces both the caller's
+    /// signature (`require_auth`) and the admin role recorded in persistent
+    /// storage. The host preserves all instance and persistent storage
+    /// across the upgrade — platform config, escrows, entitlements,
+    /// settlements, and the admin role itself all survive unchanged; only
+    /// the contract's executable is swapped.
     pub fn upgrade(
         env: Env,
         admin: Address,
         new_wasm_hash: BytesN<32>,
     ) -> Result<(), PurchaseError> {
         auth::require_admin(&env, &admin)?;
-        env.deployer().update_current_contract_wasm(new_wasm_hash);
+        env.deployer()
+            .update_current_contract_wasm(new_wasm_hash.clone());
+        extend_instance_ttl(&env);
+        ContractUpgradedEvent {
+            admin,
+            new_wasm_hash,
+        }
+        .publish(&env);
         Ok(())
     }
 
