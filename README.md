@@ -1,5 +1,15 @@
 # ScholarMarket
 
+[![Frontend CI](https://github.com/ScholarMarket/scholarmarket/actions/workflows/frontend-ci.yml/badge.svg?branch=main)](https://github.com/ScholarMarket/scholarmarket/actions/workflows/frontend-ci.yml)
+[![Contracts CI](https://github.com/ScholarMarket/scholarmarket/actions/workflows/contracts-ci.yml/badge.svg?branch=main)](https://github.com/ScholarMarket/scholarmarket/actions/workflows/contracts-ci.yml)
+[![Backend CI](https://github.com/ScholarMarket/scholarmarket/actions/workflows/backend.yml/badge.svg?branch=main)](https://github.com/ScholarMarket/scholarmarket/actions/workflows/backend.yml)
+[![Backend Integration Tests](https://github.com/ScholarMarket/scholarmarket/actions/workflows/backend-tests.yml/badge.svg?branch=main)](https://github.com/ScholarMarket/scholarmarket/actions/workflows/backend-tests.yml)
+[![Security Guardrails](https://github.com/ScholarMarket/scholarmarket/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/ScholarMarket/scholarmarket/actions/workflows/security.yml)
+[![Test Coverage](https://img.shields.io/badge/coverage-passing-brightgreen.svg)](https://github.com/ScholarMarket/scholarmarket/actions)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Stellar Network](https://img.shields.io/badge/stellar-testnet%20%7C%20mainnet-08B5E5?logo=stellar&logoColor=white)](https://stellar.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 ScholarMarket is an educational content marketplace that helps educators, students, and creators publish, license, sell, and manage access to learning materials.
 
 The project combines a modern Next.js application with off-chain file storage, searchable marketplace data, and a planned Stellar/Soroban payment and entitlement layer for low-cost educational content transactions.
@@ -91,7 +101,7 @@ Soroban Contracts + Stellar RPC/Horizon
 ### Installation
 
 ```bash
-git clone https://github.com/Obiajulu-gif/scholarmarket.git
+git clone https://github.com/ScholarMarket/scholarmarket.git
 cd scholarmarket
 npm install
 cp .env.example .env.local
