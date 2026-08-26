@@ -11,8 +11,8 @@ import { useWallet } from "@/hooks/useWallet";
 import { useCart } from "@/hooks/useCart";
 import ThemeToggle from "./ThemeToggle";
 import { WalletStatus } from "@/providers/WalletProvider";
-import { FaShoppingCart, FaExternalLinkAlt, FaCopy, FaCheck } from "react-icons/fa";
-import { getExplorerAccountUrl } from "@/lib/config/chain";
+import { FaShoppingCart, FaExternalLinkAlt, FaCopy, FaCheck, FaPlug } from "react-icons/fa";
+import { getExplorerAccountUrl, isMainnet, getNetworkName } from "@/lib/config/chain";
 import NotificationCenter from "./notifications/NotificationCenter";
 
 export default function Navbar() {
@@ -36,10 +36,22 @@ export default function Navbar() {
 		isConnected,
 		state,
 		balances,
-		disconnect
+		disconnect,
+		networkPassphrase,
 	} = useWallet();
 	const balance = balances?.snapshot?.native?.balance;
 	const balanceSymbol = 'XLM';
+
+	const networkName = getNetworkName(networkPassphrase);
+
+	const handleDisconnect = async () => {
+		try {
+			await fetch('/api/auth/logout', { method: 'POST' });
+		} catch {
+			// Proceed with client-side disconnect even if server logout fails
+		}
+		await disconnect();
+	};
 
 	useEffect(() => {
 		const handleScroll = () => {
@@ -169,8 +181,8 @@ export default function Navbar() {
 									<div className="px-4 py-2 border-b border-gray-100 mb-1">
 										<span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Network</span>
 										<div className="flex items-center gap-1.5 mt-0.5">
-											<div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-											<span className="text-sm font-semibold text-gray-800">Testnet</span>
+											<div className={`w-1.5 h-1.5 rounded-full ${isMainnet ? 'bg-blue-500' : 'bg-green-500'}`}></div>
+											<span className="text-sm font-semibold text-gray-800">{networkName}</span>
 										</div>
 									</div>
 									<button
@@ -195,10 +207,11 @@ export default function Navbar() {
 										View on Explorer <FaExternalLinkAlt className="ml-1" size={10} />
 									</a>
 									<button
-										onClick={disconnect}
-										className="flex items-center w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors mt-1"
+										onClick={handleDisconnect}
+										className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors mt-1"
 									>
-										Disconnect
+										<FaPlug size={10} />
+										Disconnect Wallet
 									</button>
 								</div>
 							</div>
@@ -239,6 +252,10 @@ export default function Navbar() {
 										<div className="w-2 h-2 bg-green-500 rounded-full"></div>
 										{formatAddress(address)}
 									</div>
+									<div className="flex items-center gap-1.5 text-xs text-gray-500">
+										<div className={`w-1.5 h-1.5 rounded-full ${isMainnet ? 'bg-blue-500' : 'bg-green-500'}`}></div>
+										{networkName}
+									</div>
 									{balance && (
 										<p className="text-xs text-gray-500">
 											{parseFloat(balance).toFixed(2)} {balanceSymbol}
@@ -263,15 +280,15 @@ export default function Navbar() {
 											>
 												Dashboard
 											</Link>
-											<button
-												onClick={() => {
-													setMenuOpen(false);
-													disconnect();
-												}}
-												className="flex-1 bg-red-50 text-red-600 text-sm font-bold py-3 px-4 rounded-2xl"
-											>
-												Log Out
-											</button>
+										<button
+											onClick={() => {
+												setMenuOpen(false);
+												handleDisconnect();
+											}}
+											className="flex-1 bg-red-50 text-red-600 text-sm font-bold py-3 px-4 rounded-2xl"
+										>
+											Disconnect Wallet
+										</button>
 										</div>
 									</div>
 								</div>

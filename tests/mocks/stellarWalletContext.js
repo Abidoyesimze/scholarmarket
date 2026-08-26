@@ -71,6 +71,7 @@ export function createConnectedWalletValue(overrides = {}) {
       snapshot: { native: { balance: '100.0000000' } },
     },
     refreshBalances: vi.fn(),
+    networkPassphrase: 'Test SDF Network ; September 2015',
     ...overrides,
   };
 }
@@ -89,6 +90,7 @@ export function createDisconnectedWalletValue(overrides = {}) {
     address: null,
     balances: { status: 'idle' },
     refreshBalances: vi.fn(),
+    networkPassphrase: null,
     ...overrides,
   };
 }

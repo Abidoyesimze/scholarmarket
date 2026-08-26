@@ -336,6 +336,13 @@ export function WalletProvider({ children }) {
     [assertConnected],
   );
 
+  const networkPassphrase =
+    state.status === WalletStatus.Connected
+      ? state.session.network.passphrase
+      : state.status === WalletStatus.Unsupported
+        ? state.actualPassphrase ?? null
+        : null;
+
   const value = useMemo(() => {
     const isConnected = state.status === WalletStatus.Connected;
     return {
@@ -348,6 +355,7 @@ export function WalletProvider({ children }) {
       address: isConnected ? state.session.address : null,
       balances: balancesState,
       refreshBalances,
+      networkPassphrase,
     };
   }, [
     state,
@@ -356,7 +364,8 @@ export function WalletProvider({ children }) {
     signTransaction,
     signAuthEntry,
     balancesState,
-    refreshBalances
+    refreshBalances,
+    networkPassphrase,
   ]);
 
   return (
