@@ -12,6 +12,7 @@ import { useCreatePurchase, useStartAccessRequest } from "@/hooks/api/usePurchas
 import { ACCEPTED_ASSET, getExplorerTxUrl } from "@/lib/config/chain";
 import { TransactionStatus } from "@/lib/transactions/transaction";
 import { useTransactionCenter } from "@/providers/TransactionProvider";
+import { useStellarTransaction } from "@/hooks/useStellarTransaction";
 
 const SUPPORTED_ASSETS = [
   { code: ACCEPTED_ASSET, issuer: null, label: `Stellar ${ACCEPTED_ASSET}` },
@@ -62,10 +63,6 @@ function useQuote(materialId, asset, price) {
   };
 }
 
-function createLocalTxHash() {
-  return `scholarmarket_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
-}
-
 export default function BuyNowModal({
   isOpen,
   onClose,
@@ -98,7 +95,10 @@ export default function BuyNowModal({
     confirmTransaction,
     failTransaction,
     clearTransaction,
+    pushOptimisticToast,
   } = useTransactionCenter();
+
+  const { execute: executeStellarTx } = useStellarTransaction();
 
   const isReceiptVisible = receiptStatus !== "idle";
   const explorerHint = useMemo(
@@ -157,8 +157,6 @@ export default function BuyNowModal({
       return;
     }
 
-    const txHash = createLocalTxHash();
-    const purchasedAt = new Date().toISOString();
     const amount = quote?.amount || price;
     const asset = quote?.asset || selectedAsset.code;
 
@@ -167,43 +165,66 @@ export default function BuyNowModal({
     setReceipt({
       itemName: materialTitle || `Material #${materialId}`,
       creator: materialCreator,
-      transactionHash: txHash,
+      transactionHash: null,
       totalAmount: amount,
       currency: asset,
       totalFee: quote?.fee || "0.00",
-      purchasedAt,
+      purchasedAt: new Date().toISOString(),
     });
     setReceiptStatus("signing");
 
     try {
-      await startAccessRequestMutation.mutateAsync({
-        materialId,
-        buyerAddress: address,
-        email,
-        amount,
-        asset,
-      });
-      onAccessUpdated?.();
-
       beginTransaction({
         scope: "purchase",
+        title: "Signing checkout",
+        message: "Building the payment transaction\u2026",
+      });
+
+      const xdrResponse = await fetch("/api/checkout/build-xdr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ buyerAddress: address, amount, asset }),
+      });
+
+      if (!xdrResponse.ok) {
+        const errBody = await xdrResponse.json().catch(() => ({}));
+        throw new Error(errBody.detail || errBody.error || "Failed to build payment transaction");
+      }
+
+      const { unsignedXdr, explorerBaseUrl } = await xdrResponse.json();
+
+      markStatus(TransactionStatus.Signing, {
         title: "Signing checkout",
         message: "Approve the Stellar checkout in your wallet.",
       });
 
-      markStatus(TransactionStatus.Signing, {
-        title: "Signing checkout",
-        message: "Waiting for wallet approval before submitting payment.",
+      const { hash: txHash } = await executeStellarTx(unsignedXdr, {
+        description: "Checkout",
+        explorerBaseUrl,
       });
 
-      await new Promise((resolve) => window.setTimeout(resolve, 500));
       setReceiptStatus("confirming");
+      setReceipt((current) => ({ ...current, transactionHash: txHash }));
 
       markStatus(TransactionStatus.PendingConfirmation, {
         txHash,
         title: "Confirming checkout",
         message: "The payment is being confirmed before access is granted.",
         explorerUrl: getExplorerTxUrl(txHash),
+      });
+
+      pushOptimisticToast({
+        txHash,
+        description: "Checkout",
+        explorerBaseUrl,
+      });
+
+      await startAccessRequestMutation.mutateAsync({
+        materialId,
+        buyerAddress: address,
+        email,
+        amount,
+        asset,
       });
 
       const result = await createPurchaseMutation.mutateAsync({
@@ -217,9 +238,7 @@ export default function BuyNowModal({
       });
 
       const confirmedHash = result?.purchase?.transactionHash || result?.transactionHash || txHash;
-      const confirmedAt = result?.purchase?.confirmedAt || result?.purchase?.createdAt || purchasedAt;
-
-      await new Promise((resolve) => window.setTimeout(resolve, 600));
+      const confirmedAt = result?.purchase?.confirmedAt || result?.purchase?.createdAt || new Date().toISOString();
 
       setReceipt((current) => ({
         ...current,

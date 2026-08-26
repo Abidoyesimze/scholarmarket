@@ -84,9 +84,31 @@ export function classifyTransactionError(error) {
       status: TransactionStatus.Failed,
       tone: TransactionTone.Danger,
       title: "Insufficient balance",
-      message: "Add funds to your wallet and try again.",
+      message: "Add XLM or the required asset to your wallet and try again.",
       retryable: true,
       code: "insufficient_funds",
+    };
+  }
+
+  if (/sequence|seqno|sequence number|bad sequence/.test(normalized)) {
+    return {
+      status: TransactionStatus.NeedsRetry,
+      tone: TransactionTone.Warning,
+      title: "Sequence number mismatch",
+      message: "Your account may have a pending transaction. Wait a moment and retry, or check the explorer for pending activity.",
+      retryable: true,
+      code: "sequence_mismatch",
+    };
+  }
+
+  if (/trust|trustline|no trust|asset not accepted/.test(normalized)) {
+    return {
+      status: TransactionStatus.Failed,
+      tone: TransactionTone.Danger,
+      title: "Missing trustline",
+      message: "You need to add this asset in your wallet before paying. Open your wallet, add the asset, then retry.",
+      retryable: true,
+      code: "missing_trustline",
     };
   }
 
