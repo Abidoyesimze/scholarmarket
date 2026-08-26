@@ -28,6 +28,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import Pagination from "@/components/ui/Pagination";
 import PrimaryButton from "@/components/ui/PrimaryButton";
 import SaveMaterialButton from "@/components/materials/SaveMaterialButton";
+import MaterialCardSkeleton from "@/components/materials/MaterialCardSkeleton";
 import RecentlyViewedMaterials from "@/components/materials/RecentlyViewedMaterials";
 import ResourceStatusBadge from "@/components/materials/ResourceStatusBadge";
 import { useMarketplaceMaterials } from "@/hooks/api/useMaterials";
@@ -557,9 +558,17 @@ export default function MarketPage() {
             </div>
           </div>
 
-          {isLoading ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-600">Loading materials...</div>
-          ) : isError ? (
+			{isLoading ? (
+				<div
+					role="status"
+					aria-label="Loading materials"
+					className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+				>
+					{Array.from({ length: 8 }).map((_, index) => (
+						<MaterialCardSkeleton key={index} />
+					))}
+				</div>
+			) : isError ? (
             <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center text-rose-700">
               {error?.message || "Unable to load materials right now."}
             </div>
