@@ -4,9 +4,17 @@ info:
   title: ScholarMarket API
   version: "1.0.0"
   description: |
-    REST API for the ScholarMarket decentralised learning-material marketplace.
-    All write endpoints require a valid `auth_token` cookie issued by the
+    REST API for the ScholarMarket educational content marketplace.
+    Provides endpoints for managing materials, purchases, creator analytics,
+    marketplace discovery, and checkout flows.
+
+    ## Authentication
+    All write endpoints require a valid `token` cookie issued by the
     `/api/auth` login flow (HS256 JWT signed with `JWT_SECRET`).
+
+    ## Rate Limits
+    Most endpoints are rate-limited. Limits vary by route and are applied
+    per-user. Check response headers for `X-RateLimit-*` fields.
 
 servers:
   - url: "http://localhost:3000"
@@ -14,12 +22,28 @@ servers:
   - url: "https://scholarmarket.vercel.app"
     description: Production (Vercel)
 
+tags:
+  - name: Materials
+    description: CRUD operations for educational materials (owned by the authenticated user)
+  - name: Marketplace
+    description: Public marketplace for browsing and discovering materials
+  - name: Purchases
+    description: Purchase flows for buying educational materials
+  - name: Creators
+    description: Creator-specific endpoints for managing materials and viewing analytics
+  - name: Checkout
+    description: Checkout initiation, tax estimation, and wallet verification
+
+security:
+  - cookieAuth: []
+
 components:
   securitySchemes:
     cookieAuth:
       type: apiKey
       in: cookie
-      name: auth_token
+      name: token
+      description: JWT session token set via HTTP-only cookie. Obtained through the authentication flow (POST /api/auth/challenge + POST /api/auth/verify).
 
   schemas:
     Error:
@@ -27,8 +51,6 @@ components:
       properties:
         error:
           type: string
-        details:
-          type: object
       required: [error]
 
     Material:
@@ -37,57 +59,460 @@ components:
         _id:
           type: string
           description: MongoDB ObjectId
+        userAddress:
+          type: string
+          description: Stellar address of the material owner
         title:
           type: string
+          maxLength: 160
         description:
           type: string
+          maxLength: 5000
+        shortSummary:
+          type: string
+          maxLength: 280
         price:
           type: number
-          format: float
+          minimum: 0
+        usageRights:
+          type: string
+          maxLength: 1000
+        visibility:
+          type: string
+          enum: [private, public, unlisted]
+        coverImageUrl:
+          type: string
+          nullable: true
+        thumbnailUrl:
+          type: string
+          nullable: true
+        tokenId:
+          type: string
+          nullable: true
+        txHash:
+          type: string
+          nullable: true
         category:
           type: string
-        tags:
+          nullable: true
+          description: "Category ID (e.g. 'computer-science')"
+        subject:
+          type: string
+          nullable: true
+          description: "Subject ID (e.g. 'blockchain')"
+        level:
+          type: string
+          nullable: true
+          description: "Difficulty level (e.g. 'intermediate')"
+        learningOutcomes:
           type: array
           items:
             type: string
-        fileUrl:
-          type: string
-          format: uri
-        userAddress:
-          type: string
-          description: Stellar public key of the uploader
+          maxItems: 8
+        tableOfContents:
+          type: array
+          items:
+            type: string
+          maxItems: 16
+        sampleNotes:
+          type: array
+          items:
+            type: string
+          maxItems: 6
+        averageScore:
+          type: number
+          description: Average rating score
+        rating:
+          type: number
+          description: Average rating (alias for averageScore)
+        feedbackCount:
+          type: integer
+          description: Number of feedback entries
+        reviewsCount:
+          type: integer
+          description: Number of reviews (alias for feedbackCount)
+        version:
+          type: integer
+          description: Material revision version
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-      required: [title, price]
 
-    MaterialInput:
+    CreateMaterialRequest:
       type: object
+      required: [title, storageKey]
       properties:
         title:
           type: string
-          minLength: 1
-          maxLength: 200
+          maxLength: 160
+          example: "Introduction to Stellar Consensus"
         description:
           type: string
-          maxLength: 2000
+          maxLength: 5000
+        shortSummary:
+          type: string
+          maxLength: 280
         price:
           type: number
-          format: float
           minimum: 0
+          default: 0
+          example: 5.00
+        usageRights:
+          type: string
+          maxLength: 1000
+          example: "Standard License (download only)"
+        visibility:
+          type: string
+          enum: [private, public, unlisted]
+          default: private
+        coverImageUrl:
+          type: string
+        thumbnailUrl:
+          type: string
+        tokenId:
+          type: string
+        txHash:
+          type: string
         category:
           type: string
-        tags:
+          example: "computer-science"
+        subject:
+          type: string
+          example: "blockchain"
+        level:
+          type: string
+          example: "intermediate"
+        storageKey:
+          type: string
+          description: "File storage reference (e.g. Vercel Blob key)"
+          example: "uploads/user123/material-v1.pdf"
+        learningOutcomes:
           type: array
           items:
             type: string
-        fileUrl:
+          maxItems: 8
+          example: ["Understand federated Byzantine agreement", "Explain quorum slices"]
+        tableOfContents:
+          type: array
+          items:
+            type: string
+          maxItems: 16
+          example: ["Chapter 1: Overview", "Chapter 2: Quorum Slices"]
+        sampleNotes:
+          type: array
+          items:
+            type: string
+          maxItems: 6
+
+    UpdateMaterialRequest:
+      type: object
+      description: "Partial update — only include fields to change"
+      properties:
+        title:
           type: string
-          format: uri
-      required: [title, price]
+          maxLength: 160
+        description:
+          type: string
+          maxLength: 5000
+        price:
+          type: number
+          minimum: 0
+        usageRights:
+          type: string
+          maxLength: 1000
+        visibility:
+          type: string
+          enum: [private, public, unlisted]
+        thumbnailUrl:
+          type: string
+        category:
+          type: string
+        subject:
+          type: string
+        level:
+          type: string
+        changeReason:
+          type: string
+          maxLength: 500
+          description: Optional reason for the update (recorded in material history)
+
+    Purchase:
+      type: object
+      properties:
+        _id:
+          type: string
+        materialId:
+          type: string
+        buyerAddress:
+          type: string
+          description: Stellar G-address of the buyer
+        userEmail:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, indexing, confirmed, settled, completed]
+          description: Purchase lifecycle status
+        transactionHash:
+          type: string
+          nullable: true
+        signedXdr:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          nullable: true
+        asset:
+          type: string
+          nullable: true
+          description: Payment asset code
+        purchasedAt:
+          type: string
+          format: date-time
+          nullable: true
+        confirmedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreatePurchaseRequest:
+      type: object
+      required: [materialId]
+      properties:
+        materialId:
+          type: string
+          description: MongoDB ObjectId of the material to purchase
+        signedXdr:
+          type: string
+          description: Signed Stellar transaction XDR (optional for pending)
+        transactionHash:
+          type: string
+          description: Transaction hash (optional for pending)
+        email:
+          type: string
+          format: email
+        amount:
+          type: number
+          description: Payment amount
+        asset:
+          type: string
+          description: "Payment asset code (e.g. 'USDC')"
+        buyerAddress:
+          type: string
+          description: Override buyer address (falls back to session)
+
+    PurchasedMaterial:
+      type: object
+      properties:
+        purchaseId:
+          type: string
+        materialId:
+          type: string
+        purchasedAt:
+          type: string
+          format: date-time
+        transactionHash:
+          type: string
+        material:
+          oneOf:
+            - $ref: "#/components/schemas/Material"
+            - type: "null"
+          description: Material metadata (null if material was deleted)
+
+    CreatorMaterialsResponse:
+      type: object
+      properties:
+        materials:
+          type: array
+          items:
+            $ref: "#/components/schemas/Material"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    CreatorAnalytics:
+      type: object
+      properties:
+        totalRevenue:
+          type: number
+        totalSales:
+          type: integer
+        monthlySales:
+          type: integer
+        pendingCount:
+          type: integer
+        indexingCount:
+          type: integer
+        uploadCount:
+          type: integer
+        publishedCount:
+          type: integer
+        draftCount:
+          type: integer
+        materialActivity:
+          type: integer
+        learnerInterest:
+          type: integer
+        savedCount:
+          type: integer
+        completedOrders:
+          type: integer
+        hasActivity:
+          type: boolean
+        chartData:
+          type: array
+          items:
+            type: object
+            properties:
+              day:
+                type: string
+              revenue:
+                type: number
+              orders:
+                type: integer
+              uploads:
+                type: integer
+              interest:
+                type: integer
+        topMaterials:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              sales:
+                type: integer
+              completedOrders:
+                type: integer
+              learnerInterest:
+                type: integer
+              activity:
+                type: integer
+              revenue:
+                type: string
+              visibility:
+                type: string
+              uploadedAt:
+                type: string
+                format: date-time
+                nullable: true
+        recentOrders:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              material:
+                type: string
+              buyer:
+                type: string
+              amount:
+                type: string
+              status:
+                type: string
+              date:
+                type: string
+        withdrawals:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+              amount:
+                type: string
+              status:
+                type: string
+        dateRange:
+          type: object
+          properties:
+            from:
+              type: string
+              format: date-time
+            to:
+              type: string
+              format: date-time
+
+    MarketMaterialsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Material"
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    CheckoutEstimation:
+      type: object
+      properties:
+        materialId:
+          type: string
+        amount:
+          type: number
+          description: Base amount before tax
+        taxAmount:
+          type: number
+          description: Estimated tax
+        taxRateBps:
+          type: integer
+          description: Tax rate in basis points
+        totalAmount:
+          type: number
+          description: Total amount including tax
+        asset:
+          type: string
+        geolocation:
+          type: object
+          properties:
+            country:
+              type: string
+            region:
+              type: string
+
+    InitiateCheckoutRequest:
+      type: object
+      required: [materialId, amount, asset]
+      properties:
+        materialId:
+          type: string
+        amount:
+          type: number
+          minimum: 0
+        asset:
+          type: string
+          description: "Payment asset code (e.g. 'USDC')"
+        buyerIp:
+          type: string
+        buyerCountry:
+          type: string
+          description: ISO 3166-1 alpha-2 country code
+        discountCode:
+          type: string
 
     MaterialImportRecord:
       type: object
@@ -187,27 +612,6 @@ components:
           type: string
           format: date-time
 
-    Purchase:
-      type: object
-      properties:
-        _id:
-          type: string
-        buyerAddress:
-          type: string
-        materialId:
-          type: string
-        userEmail:
-          type: string
-        status:
-          type: string
-          enum: [pending, confirmed, failed]
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
     Entitlement:
       type: object
       properties:
@@ -217,67 +621,231 @@ components:
           type: string
           format: date-time
 
-security:
-  - cookieAuth: []
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "Unauthorized"
+    BadRequest:
+      description: Invalid request parameters or body
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "Missing materialId"
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "Forbidden: not the material owner"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "Material not found"
+    RateLimited:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
 
 paths:
   # ---------------------------------------------------------------------------
-  # Materials
+  # Materials CRUD
   # ---------------------------------------------------------------------------
   /api/materials:
     get:
-      summary: List the authenticated user's materials
+      summary: List current user's materials
       operationId: listMyMaterials
       tags: [Materials]
+      description: Returns all materials owned by the authenticated user, sorted by creation date (newest first). Results are cached for 60 seconds.
       responses:
         "200":
-          description: Array of material documents
+          description: Array of material objects
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: "#/components/schemas/Material"
+              example:
+                - _id: "665a1b2c3d4e5f6a7b8c9d0e"
+                  userAddress: "GABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF"
+                  title: "Introduction to Stellar Consensus"
+                  description: "A comprehensive guide to the Stellar Consensus Protocol"
+                  price: 5.00
+                  visibility: "public"
+                  category: "computer-science"
+                  subject: "blockchain"
+                  level: "intermediate"
+                  version: 1
+                  createdAt: "2026-08-01T10:00:00.000Z"
+                  updatedAt: "2026-08-01T10:00:00.000Z"
         "401":
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "429":
-          description: Rate limited
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/Unauthorized"
 
     post:
-      summary: Create a new material listing
+      summary: Create a new material
       operationId: createMaterial
       tags: [Materials]
+      description: "Creates a new educational material. Requires a valid title and storageKey (file reference)."
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/MaterialInput"
+              $ref: "#/components/schemas/CreateMaterialRequest"
+            example:
+              title: "Introduction to Stellar Consensus"
+              description: "A comprehensive guide to the Stellar Consensus Protocol"
+              price: 5.00
+              visibility: "public"
+              category: "computer-science"
+              subject: "blockchain"
+              level: "intermediate"
+              storageKey: "uploads/user123/material-v1.pdf"
+              learningOutcomes:
+                - "Understand federated Byzantine agreement"
+                - "Explain quorum slices"
+              usageRights: "Standard License (download only)"
       responses:
         "201":
-          description: Material created
+          description: Material created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Material"
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      materialId:
+                        type: string
+                        example: "665a1b2c3d4e5f6a7b8c9d0e"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    put:
+      summary: Update an existing material
+      operationId: updateMaterial
+      tags: [Materials]
+      description: Updates a material owned by the authenticated user. Only the material owner can update.
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: MongoDB ObjectId of the material to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMaterialRequest"
+            example:
+              title: "Introduction to Stellar Consensus (Updated)"
+              price: 7.50
+              changeReason: "Updated pricing and title for clarity"
+      responses:
+        "200":
+          description: Material updated successfully
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Material"
         "400":
-          description: Validation error
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      summary: Partially update an existing material (alias for PUT)
+      operationId: patchMaterial
+      tags: [Materials]
+      description: Alias for PUT — accepts the same body and parameters.
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMaterialRequest"
+      responses:
+        "200":
+          description: Material updated successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/Material"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-        "429":
-          $ref: "#/components/responses/RateLimited"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete a material
+      operationId: deleteMaterial
+      tags: [Materials]
+      description: Permanently deletes a material owned by the authenticated user.
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: MongoDB ObjectId of the material to delete
+      responses:
+        "200":
+          description: Material deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Material deleted successfully"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/materials/import:
     post:
@@ -321,141 +889,220 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-        "429":
-          $ref: "#/components/responses/RateLimited"
 
   # ---------------------------------------------------------------------------
-  # Market materials (public browse)
+  # Marketplace (public browse)
   # ---------------------------------------------------------------------------
   /api/market-materials:
     get:
-      summary: Browse publicly listed materials
+      summary: Browse marketplace materials
       operationId: browseMarketMaterials
-      tags: [Market]
+      tags: [Marketplace]
+      description: |
+        Returns all public materials across all creators. Supports pagination,
+        search, and filtering. Results are cached for 10 minutes.
+
+        Pass a single `id` query param to fetch one material by MongoDB ObjectId.
       security: []
       parameters:
+        - name: id
+          in: query
+          schema:
+            type: string
+          description: If provided, returns a single material by MongoDB ObjectId
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 12
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [newest, popular, price-low, price-high]
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Search query for title/description
         - name: category
           in: query
           schema:
             type: string
-        - name: cursor
+        - name: subject
           in: query
-          description: Pagination cursor (MongoDB ObjectId of the last seen item)
           schema:
             type: string
-        - name: limit
+        - name: level
           in: query
           schema:
-            type: integer
-            default: 20
-            minimum: 1
-            maximum: 100
+            type: string
       responses:
         "200":
-          description: Paginated list of materials
+          description: Paginated list of marketplace materials (or single material when ?id= is provided)
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Material"
-                  nextCursor:
-                    type: string
-                    nullable: true
+              examples:
+                single:
+                  summary: Single material fetch (?id=...)
+                  value:
+                    _id: "665a1b2c3d4e5f6a7b8c9d0e"
+                    title: "Introduction to Stellar Consensus"
+                    description: "A comprehensive guide to SCP"
+                    price: 5.00
+                    visibility: "public"
+                    averageScore: 4.5
+                    rating: 4.5
+                    feedbackCount: 8
+                    reviewsCount: 8
+                    userAddress: "GABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF"
+                paginated:
+                  summary: Paginated list
+                  value:
+                    items: []
+                    page: 1
+                    pageSize: 12
+                    total: 50
+                    totalPages: 5
 
   # ---------------------------------------------------------------------------
-  # Upload
-  # ---------------------------------------------------------------------------
-  /api/upload:
-    post:
-      summary: Upload a material file to Pinata / IPFS
-      operationId: uploadMaterialFile
-      tags: [Upload]
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
-              required: [file]
-      responses:
-        "200":
-          description: Upload successful — returns the IPFS / gateway URL
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  url:
-                    type: string
-                    format: uri
-                  cid:
-                    type: string
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  # ---------------------------------------------------------------------------
-  # Purchase
+  # Purchases
   # ---------------------------------------------------------------------------
   /api/purchase:
     get:
-      summary: List the authenticated user's purchases
+      summary: List current user's purchases
       operationId: listPurchases
-      tags: [Purchase]
+      tags: [Purchases]
+      description: Returns all purchase records for the authenticated user, sorted by creation date (newest first).
       responses:
         "200":
-          description: Purchase history
+          description: Array of purchase records
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: "#/components/schemas/Purchase"
+              example:
+                - _id: "665a1b2c3d4e5f6a7b8c9d1e"
+                  materialId: "665a1b2c3d4e5f6a7b8c9d0e"
+                  buyerAddress: "GABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF"
+                  status: "confirmed"
+                  transactionHash: "abc123def456..."
+                  amount: 5.00
+                  asset: "USDC"
+                  purchasedAt: "2026-08-01T12:00:00.000Z"
+                  createdAt: "2026-08-01T11:55:00.000Z"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
     post:
-      summary: Record a material purchase after on-chain payment
+      summary: Purchase a material
       operationId: recordPurchase
-      tags: [Purchase]
+      tags: [Purchases]
+      description: |
+        Initiates or confirms a purchase of an educational material. If payment
+        details (transactionHash or signedXdr) are provided, the purchase is
+        marked as confirmed immediately. Otherwise it enters a pending state.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                materialId:
-                  type: string
-                signedXdr:
-                  type: string
-                email:
-                  type: string
-              required: [materialId]
+              $ref: "#/components/schemas/CreatePurchaseRequest"
+            example:
+              materialId: "665a1b2c3d4e5f6a7b8c9d0e"
+              signedXdr: "AAAAAGf8...signed-transaction-xdr..."
+              transactionHash: "abc123def456789..."
+              email: "learner@example.com"
+              amount: 5.00
+              asset: "USDC"
       responses:
-        "201":
-          description: Purchase recorded
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Purchase"
         "200":
-          description: Existing purchase returned when the buyer already owns the material
+          description: Purchase already completed
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Already purchased"
+                  purchase:
+                    $ref: "#/components/schemas/Purchase"
+                  transactionHash:
+                    type: string
+        "201":
+          description: New confirmed purchase
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  purchaseId:
+                    type: string
+                  purchase:
+                    $ref: "#/components/schemas/Purchase"
+                  access:
+                    type: object
+        "202":
+          description: Purchase pending payment confirmation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  purchaseId:
+                    type: string
+                  purchase:
+                    $ref: "#/components/schemas/Purchase"
+                  access:
+                    type: object
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/purchased-materials:
+    get:
+      summary: List purchased materials with metadata
+      operationId: listPurchasedMaterials
+      tags: [Purchases]
+      description: |
+        Returns all materials the authenticated user has a confirmed on-chain
+        entitlement for. Each item merges the purchase record with the material metadata.
+      responses:
+        "200":
+          description: Array of purchased material objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PurchasedMaterial"
+              example:
+                - purchaseId: "665a1b2c3d4e5f6a7b8c9d1e"
+                  materialId: "665a1b2c3d4e5f6a7b8c9d0e"
+                  purchasedAt: "2026-08-01T12:00:00.000Z"
+                  transactionHash: "abc123def456..."
+                  material:
+                    _id: "665a1b2c3d4e5f6a7b8c9d0e"
+                    title: "Introduction to Stellar Consensus"
+                    description: "A comprehensive guide to SCP"
+                    price: 5.00
+                    visibility: "public"
+                    version: 1
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -463,7 +1110,7 @@ paths:
     get:
       summary: Aggregate account purchase and Stellar transaction history
       operationId: listTransactionHistory
-      tags: [Purchase]
+      tags: [Purchases]
       parameters:
         - name: page
           in: query
@@ -505,104 +1152,277 @@ paths:
           $ref: "#/components/responses/Unauthorized"
 
   # ---------------------------------------------------------------------------
-  # Entitlements
+  # Creators
   # ---------------------------------------------------------------------------
-  /api/entitlements:
+  /api/creator/materials:
     get:
-      summary: List materials the authenticated user is entitled to download
-      operationId: listEntitlements
-      tags: [Entitlements]
+      summary: List creator's materials (paginated)
+      operationId: listCreatorMaterials
+      tags: [Creators]
+      description: Returns a paginated list of materials owned by the authenticated creator. Includes total count and page info.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: Page number (1-indexed)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 50
+          description: Number of items per page (max 50)
       responses:
         "200":
-          description: List of entitlements
+          description: Paginated list of creator materials
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Entitlement"
+                $ref: "#/components/schemas/CreatorMaterialsResponse"
+              example:
+                materials:
+                  - _id: "665a1b2c3d4e5f6a7b8c9d0e"
+                    title: "Introduction to Stellar Consensus"
+                    description: "A comprehensive guide to SCP"
+                    price: 5.00
+                    visibility: "public"
+                    category: "computer-science"
+                    subject: "blockchain"
+                    level: "intermediate"
+                    version: 1
+                    createdAt: "2026-08-01T10:00:00.000Z"
+                total: 1
+                page: 1
+                limit: 10
+                totalPages: 1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/creator/analytics:
+    get:
+      summary: Get creator analytics dashboard data
+      operationId: getCreatorAnalytics
+      tags: [Creators]
+      description: |
+        Returns aggregated analytics for the authenticated creator, including
+        revenue, sales counts, chart data, top materials, recent orders, and
+        withdrawals. Supports optional date range filtering.
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: "Start of date range (ISO 8601). Defaults to 30 days ago."
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: "End of date range (ISO 8601). Defaults to now."
+      responses:
+        "200":
+          description: Creator analytics data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatorAnalytics"
+              example:
+                totalRevenue: 125.50
+                totalSales: 25
+                monthlySales: 8
+                pendingCount: 2
+                indexingCount: 1
+                uploadCount: 12
+                publishedCount: 10
+                draftCount: 2
+                materialActivity: 156
+                learnerInterest: 42
+                savedCount: 18
+                completedOrders: 25
+                hasActivity: true
+                chartData:
+                  - day: "Mon"
+                    revenue: 15.00
+                    orders: 3
+                    uploads: 1
+                    interest: 5
+                topMaterials:
+                  - id: "665a1b2c3d4e5f6a7b8c9d0e"
+                    name: "Introduction to Stellar Consensus"
+                    sales: 12
+                    revenue: "$60.00"
+                    visibility: "public"
+                    activity: 45
+                recentOrders: []
+                withdrawals: []
+                dateRange:
+                  from: "2026-07-26T00:00:00.000Z"
+                  to: "2026-08-25T23:59:59.000Z"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
   # ---------------------------------------------------------------------------
-  # User profile
+  # Checkout
   # ---------------------------------------------------------------------------
-  /api/profile:
+  /api/checkout/initiate:
     get:
-      summary: Get the authenticated user's profile
-      operationId: getProfile
-      tags: [Profile]
+      summary: Estimate tax for a checkout
+      operationId: estimateTax
+      tags: [Checkout]
+      description: Returns a tax estimation without creating a checkout intent. Useful for previewing costs before committing.
+      security: []
+      parameters:
+        - name: amount
+          in: query
+          required: true
+          schema:
+            type: number
+            minimum: 0
+          description: Base purchase amount
+        - name: asset
+          in: query
+          required: true
+          schema:
+            type: string
+          description: "Payment asset code (e.g. 'USDC')"
+        - name: buyerIp
+          in: query
+          schema:
+            type: string
+          description: Buyer IP for geolocation-based tax
+        - name: buyerCountry
+          in: query
+          schema:
+            type: string
+          description: ISO country code override
       responses:
         "200":
-          description: User profile
+          description: Tax estimation
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserProfile"
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  estimation:
+                    $ref: "#/components/schemas/CheckoutEstimation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+    post:
+      summary: Initiate a checkout with tax estimation
+      operationId: initiateCheckout
+      tags: [Checkout]
+      description: |
+        Creates a checkout intent with tax estimation based on buyer geolocation.
+        Verifies the buyer holds a trustline for the payment asset. Applies any
+        valid discount code. The intent expires after 30 minutes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InitiateCheckoutRequest"
+            example:
+              materialId: "665a1b2c3d4e5f6a7b8c9d0e"
+              amount: 5.00
+              asset: "USDC"
+              buyerCountry: "US"
+              discountCode: "STUDENT20"
+      responses:
+        "201":
+          description: Checkout initiated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  checkoutId:
+                    type: string
+                  checkout:
+                    allOf:
+                      - $ref: "#/components/schemas/CheckoutEstimation"
+                      - type: object
+                        properties:
+                          checkoutId:
+                            type: string
+                          expiresAt:
+                            type: string
+                            format: date-time
+                          discountCode:
+                            type: string
+                            nullable: true
+                          discountPercentage:
+                            type: number
+                          discountAmount:
+                            type: number
+                          originalAmount:
+                            type: number
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
-    patch:
-      summary: Update the authenticated user's profile
-      operationId: updateProfile
-      tags: [Profile]
+  /api/checkout/verify:
+    post:
+      summary: Verify wallet address matches session
+      operationId: verifyCheckoutAddress
+      tags: [Checkout]
+      description: |
+        Verifies that the wallet address in the signed transaction payload
+        matches the address stored in the user's JWT session. Blocks submission
+        if addresses differ to defend against address-spoofing.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required: [payloadAddress]
               properties:
-                displayName:
+                payloadAddress:
                   type: string
-                  maxLength: 80
-                bio:
-                  type: string
-                  maxLength: 500
-                institution:
-                  type: string
-                country:
-                  type: string
-                twitterUrl:
-                  type: string
-                githubUrl:
-                  type: string
-                websiteUrl:
-                  type: string
-                payoutWalletAddress:
-                  type: string
-                preferredPayoutCurrency:
-                  type: string
-                payoutNotes:
-                  type: string
+                  description: Stellar G-address extracted from the signed payload
+                  example: "GABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF"
       responses:
         "200":
-          description: Updated profile
+          description: Address verified successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserProfile"
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                    example: true
+                  address:
+                    type: string
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
-  responses:
-    Unauthorized:
-      description: Not authenticated
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-    BadRequest:
-      description: Validation error
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-    RateLimited:
-      description: Too many requests
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
+        "403":
+          description: Wallet address mismatch
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  reason:
+                    type: string
+                  warnings:
+                    type: integer
+                  clearSession:
+                    type: boolean

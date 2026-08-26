@@ -16,6 +16,35 @@ function sanitizeMaterial(doc) {
   return safe;
 }
 
+/**
+ * GET /api/creator/materials
+ *
+ * List materials owned by the authenticated creator (paginated).
+ *
+ * @swagger
+ * /api/creator/materials:
+ *   get:
+ *     summary: List creator's materials (paginated)
+ *     tags: [Creators]
+ *     description: Returns a paginated list of materials owned by the authenticated creator.
+ *     parameters:
+ *       - name: page
+ *         in: query
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - name: limit
+ *         in: query
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *           maximum: 50
+ *     responses:
+ *       200:
+ *         description: Paginated list of creator materials
+ *       401:
+ *         description: Unauthorized
+ */
 export async function GET(request) {
   return withApiHardening(
     request,

@@ -13,6 +13,23 @@ import { broadcastPurchaseEvent } from '@/lib/webhooks/sender';
 import { sendReceiptIfEligible } from '@/lib/email';
 
 
+/**
+ * GET /api/purchase
+ *
+ * List all purchases for the authenticated user.
+ *
+ * @swagger
+ * /api/purchase:
+ *   get:
+ *     summary: List current user's purchases
+ *     tags: [Purchases]
+ *     description: Returns all purchase records for the authenticated user, sorted by creation date.
+ *     responses:
+ *       200:
+ *         description: Array of purchase records
+ *       401:
+ *         description: Unauthorized
+ */
 export async function GET(req) {
   try {
     const user = await getUserFromCookie(req);
@@ -36,6 +53,37 @@ export async function GET(req) {
   }
 }
 
+/**
+ * POST /api/purchase
+ *
+ * Purchase a material. Creates or confirms a purchase record.
+ * If payment details (transactionHash or signedXdr) are provided, the purchase
+ * is marked as confirmed immediately. Otherwise it enters a pending state.
+ *
+ * @swagger
+ * /api/purchase:
+ *   post:
+ *     summary: Purchase a material
+ *     tags: [Purchases]
+ *     description: Initiates or confirms a purchase of an educational material.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreatePurchaseRequest'
+ *     responses:
+ *       200:
+ *         description: Purchase already completed
+ *       201:
+ *         description: New confirmed purchase
+ *       202:
+ *         description: Purchase pending
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ */
 export async function POST(req) {
   try {
     const user = await getUserFromCookie(req);

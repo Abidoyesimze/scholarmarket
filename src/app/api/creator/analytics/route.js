@@ -84,6 +84,36 @@ async function safeFindArray(collection, query, options) {
   }
 }
 
+/**
+ * GET /api/creator/analytics
+ *
+ * Get aggregated analytics for the authenticated creator.
+ *
+ * @swagger
+ * /api/creator/analytics:
+ *   get:
+ *     summary: Get creator analytics dashboard data
+ *     tags: [Creators]
+ *     description: Returns revenue, sales counts, chart data, top materials, and withdrawals.
+ *     parameters:
+ *       - name: from
+ *         in: query
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Start of date range (defaults to 30 days ago)
+ *       - name: to
+ *         in: query
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: End of date range (defaults to now)
+ *     responses:
+ *       200:
+ *         description: Creator analytics data
+ *       401:
+ *         description: Unauthorized
+ */
 export async function GET(request) {
   try {
     const user = await getUserFromCookie(request);
