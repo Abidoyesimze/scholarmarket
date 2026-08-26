@@ -16,8 +16,9 @@ ScholarMarket is an in-development educational content marketplace with a curren
 ## Before You Start
 
 1. Read [README.md](README.md).
-2. Review [docs/overview.md](docs/overview.md) and [docs/architecture.md](docs/architecture.md).
-3. Open an issue before starting large changes so architecture and scope can be aligned early.
+2. If you are new to the project, start with the [Onboarding Guide](docs/onboarding.md) for a walkthrough of the repository structure, setup steps, and branching strategy.
+3. Review [docs/overview.md](docs/overview.md) and [docs/architecture.md](docs/architecture.md).
+4. Open an issue before starting large changes so architecture and scope can be aligned early.
 
 ## Local Setup
 
