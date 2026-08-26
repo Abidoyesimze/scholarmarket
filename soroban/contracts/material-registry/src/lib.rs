@@ -217,6 +217,16 @@ pub struct AssetPolicyUpdatedEvent {
     pub enabled: bool,
 }
 
+/// Emitted when the upgrade-admin applies a new contract Wasm (#28).
+#[contractevent(topics = ["admin", "contract_upgraded"], data_format = "vec")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ContractUpgradedEvent {
+    #[topic]
+    pub admin: Address,
+    #[topic]
+    pub new_wasm_hash: BytesN<32>,
+}
+
 #[contract]
 pub struct MaterialRegistry;
 
@@ -598,6 +608,14 @@ impl MaterialRegistry {
     }
 
     /// Apply a Soroban WASM upgrade, controlled by an upgrade admin.
+    ///
+    /// Access control (#28): the caller must both sign (`require_auth`) and
+    /// hold the upgrade-admin role recorded in instance storage. The role is
+    /// bootstrapped to the first creator on initial registration and can be
+    /// transferred via `set_upgrade_admin`. The host preserves all instance
+    /// and persistent storage across the upgrade; only the contract's
+    /// executable is swapped, so materials, quotes, payouts, and the
+    /// allowlist all survive unchanged.
     pub fn upgrade(
         env: Env,
         admin: Address,
@@ -605,7 +623,14 @@ impl MaterialRegistry {
     ) -> Result<(), RegistryError> {
         admin.require_auth();
         require_upgrade_admin(&env, &admin)?;
-        env.deployer().update_current_contract_wasm(new_wasm_hash);
+        env.deployer()
+            .update_current_contract_wasm(new_wasm_hash.clone());
+        extend_instance_ttl(&env);
+        ContractUpgradedEvent {
+            admin,
+            new_wasm_hash,
+        }
+        .publish(&env);
         Ok(())
     }
 }

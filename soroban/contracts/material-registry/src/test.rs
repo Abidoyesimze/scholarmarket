@@ -5,7 +5,7 @@ extern crate std;
 use super::*;
 use soroban_sdk::testutils::storage::{Instance as _, Persistent as _};
 use soroban_sdk::testutils::{Address as _, Events as _, Ledger as _};
-use soroban_sdk::{vec, Event};
+use soroban_sdk::{vec, xdr, Bytes, Event};
 
 fn install_contract(env: &Env) -> (Address, MaterialRegistryClient<'_>) {
     let contract_id = env.register(MaterialRegistry, ());
@@ -1158,4 +1158,227 @@ fn asset_policy_updated_event_emitted() {
     client.set_asset_allowed(&creator, &asset, &AssetKind::Token, &true);
 
     assert!(client.is_asset_allowed(&asset));
+}
+
+// ============== Upgrade Access Control (#28) ==============
+
+/// Minimal-but-valid Wasm blob: an empty module carrying the
+/// `contractenvmetav0` custom section the host requires, with an interface
+/// version matching the current ledger protocol. The host validates uploaded
+/// blobs against this metadata, so access-control tests need a well-formed
+/// (if functionally empty) contract rather than real bytecode.
+fn dummy_wasm(env: &Env) -> Bytes {
+    let mut bytes: std::vec::Vec<u8> = std::vec![
+        0x00, 0x61, 0x73, 0x6D, // \0asm
+        0x01, 0x00, 0x00, 0x00, // version 1
+    ];
+    let name = b"contractenvmetav0";
+    let mut content: std::vec::Vec<u8> = std::vec::Vec::new();
+    content.extend_from_slice(&0u32.to_be_bytes()); // ScEnvMetaEntry arm: InterfaceVersion
+    // Any finalized protocol version (pre_release 0) not newer than the
+    // host's own is accepted, so a fixed, backward-compatible value works
+    // across ledger protocol upgrades.
+    content.extend_from_slice(&20u32.to_be_bytes());
+    content.extend_from_slice(&0u32.to_be_bytes()); // pre_release = 0
+    bytes.push(0x00); // custom section id
+
+    // Section size counts the name-length byte, the name, and the content.
+    bytes.push((1 + name.len() + content.len()) as u8); // uleb128, fits one byte
+    bytes.push(name.len() as u8);
+    bytes.extend_from_slice(name);
+    bytes.extend_from_slice(&content);
+    Bytes::from_slice(env, &bytes)
+}
+
+fn upload_dummy_wasm(env: &Env) -> BytesN<32> {
+    env.deployer().upload_contract_wasm(dummy_wasm(env))
+}
+
+/// Reads the contract instance's current executable Wasm hash straight off
+/// the ledger. Returns `None` when the instance still uses the native test
+/// executable (i.e. before any successful `upgrade`).
+fn contract_wasm_hash(env: &Env, contract_id: &Address) -> Option<BytesN<32>> {
+    let target: xdr::ScAddress = contract_id.clone().into();
+    let xdr::ScAddress::Contract(target_hash) = target else {
+        return None;
+    };
+    let entries = env.host().get_stored_entries().unwrap();
+    for entry in entries {
+        let (key, Some((val, _))) = entry else {
+            continue;
+        };
+        let xdr::LedgerKey::ContractData(xdr::LedgerKeyContractData {
+            contract: xdr::ScAddress::Contract(id),
+            key: xdr::ScVal::LedgerKeyContractInstance,
+            ..
+        }) = &*key
+        else {
+            continue;
+        };
+        if id != &target_hash {
+            continue;
+        }
+        let xdr::LedgerEntryData::ContractData(xdr::ContractDataEntry {
+            val: xdr::ScVal::ContractInstance(xdr::ScContractInstance { executable, .. }),
+            ..
+        }) = &val.data
+        else {
+            continue;
+        };
+        return match &executable {
+            xdr::ContractExecutable::Wasm(hash) => Some(BytesN::from_array(env, &hash.0)),
+            xdr::ContractExecutable::StellarAsset => None,
+        };
+    }
+    None
+}
+
+fn upgrade_event_emitted(env: &Env) -> bool {
+    let topic = xdr::ScVal::Symbol(xdr::ScSymbol("contract_upgraded".try_into().unwrap()));
+    env.events().all().events().iter().any(|e| match &e.body {
+        xdr::ContractEventBody::V0(v0) => v0.topics.iter().any(|t| t == &topic),
+    })
+}
+
+#[test]
+fn upgrade_admin_can_upgrade_contract() {
+    let env = Env::default();
+    let (contract_id, client) = install_contract(&env);
+    env.mock_all_auths();
+
+    // First registration bootstraps the upgrade-admin role to the creator.
+    let creator = Address::generate(&env);
+    let quotes = default_quotes(&env);
+    let payout_shares = default_payout_shares(&env);
+    let material_id = client.register_material(
+        &creator,
+        &metadata_uri(&env),
+        &bytes32(&env, 1),
+        &bytes32(&env, 2),
+        &quotes,
+        &payout_shares,
+    );
+
+    let before = contract_wasm_hash(&env, &contract_id);
+
+    let new_wasm_hash = upload_dummy_wasm(&env);
+    assert_ne!(before, Some(new_wasm_hash.clone()));
+    client.upgrade(&creator, &new_wasm_hash);
+
+    // The instance now points at the new Wasm hash...
+    assert_eq!(
+        contract_wasm_hash(&env, &contract_id),
+        Some(new_wasm_hash.clone())
+    );
+
+    // ...and the upgrade is auditable on-chain.
+    assert!(upgrade_event_emitted(&env));
+
+    // Existing state survives the upgrade unchanged.
+    let preserved = env.as_contract(&contract_id, || {
+        let record = get_material_record(&env, &material_id).unwrap();
+        record.material_id == material_id
+            && record.creator == creator
+            && record.metadata_uri == metadata_uri(&env)
+            && record.quotes == quotes
+            && record.payout_shares == payout_shares
+    });
+    assert!(preserved);
+}
+
+#[test]
+fn upgrade_preserves_existing_material_state() {
+    let env = Env::default();
+    let (contract_id, client) = install_contract(&env);
+    env.mock_all_auths();
+
+    let creator = Address::generate(&env);
+    let metadata_hash = bytes32(&env, 7);
+    let rights_hash = bytes32(&env, 8);
+    let quotes = default_quotes(&env);
+    let payout_shares = default_payout_shares(&env);
+    let material_id = client.register_material(
+        &creator,
+        &metadata_uri(&env),
+        &metadata_hash,
+        &rights_hash,
+        &quotes,
+        &payout_shares,
+    );
+
+    let new_wasm_hash = upload_dummy_wasm(&env);
+    client.upgrade(&creator, &new_wasm_hash);
+
+    // Every field of the pre-upgrade record is still intact afterwards.
+    let before = env.as_contract(&contract_id, || {
+        get_material_record(&env, &material_id).unwrap()
+    });
+    assert_eq!(before.material_id, material_id);
+    assert_eq!(before.creator, creator);
+    assert_eq!(before.metadata_uri, metadata_uri(&env));
+    assert_eq!(before.metadata_hash, metadata_hash);
+    assert_eq!(before.rights_hash, rights_hash);
+    assert_eq!(before.quotes, quotes);
+    assert_eq!(before.payout_shares, payout_shares);
+    assert!(!before.paused);
+    assert_eq!(before.status, MaterialStatus::Active);
+
+    // The upgrade-admin role itself also survives the upgrade.
+    let admin_preserved = env.as_contract(&contract_id, || {
+        require_upgrade_admin(&env, &creator).is_ok()
+    });
+    assert!(admin_preserved);
+}
+
+#[test]
+fn upgrade_rejects_non_admin() {
+    let env = Env::default();
+    let (contract_id, client) = install_contract(&env);
+    env.mock_all_auths();
+
+    let creator = Address::generate(&env);
+    let intruder = Address::generate(&env);
+    client.register_material(
+        &creator,
+        &metadata_uri(&env),
+        &bytes32(&env, 1),
+        &bytes32(&env, 2),
+        &default_quotes(&env),
+        &default_payout_shares(&env),
+    );
+
+    let before = contract_wasm_hash(&env, &contract_id);
+    let new_wasm_hash = upload_dummy_wasm(&env);
+    let result = client.try_upgrade(&intruder, &new_wasm_hash);
+    assert_eq!(result, Err(Ok(RegistryError::NotAuthorized)));
+
+    // The failed attempt must not have touched the contract executable.
+    assert_eq!(contract_wasm_hash(&env, &contract_id), before);
+    assert!(!upgrade_event_emitted(&env));
+}
+
+#[test]
+fn upgrade_rejects_before_admin_bootstrap() {
+    let env = Env::default();
+    let (_contract_id, client) = install_contract(&env);
+    env.mock_all_auths();
+
+    // No material has ever been registered, so no upgrade-admin exists yet.
+    // The upgrade path must fail closed rather than defaulting to open.
+    let intruder = Address::generate(&env);
+    let new_wasm_hash = upload_dummy_wasm(&env);
+    let result = client.try_upgrade(&intruder, &new_wasm_hash);
+    assert_eq!(result, Err(Ok(RegistryError::NotAuthorized)));
+}
+
+#[test]
+fn upgrade_requires_admin_signature() {
+    let env = Env::default();
+    let (_contract_id, client) = install_contract(&env);
+    // Deliberately no `mock_all_auths`: the caller's `require_auth` must
+    // fail at the host level before any role check runs.
+    let creator = Address::generate(&env);
+    let new_wasm_hash = upload_dummy_wasm(&env);
+    let result = client.try_upgrade(&creator, &new_wasm_hash);
+    assert!(result.is_err());
 }
