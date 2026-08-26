@@ -14,8 +14,8 @@ export const purchaseService = {
     return apiClient('/api/materials/access', { body: accessRequest });
   },
 
-  checkBatchEntitlements: async (materialIds) => {
-    return apiClient('/api/entitlements/batch', { body: { materialIds } });
+  checkBatchEntitlements: async (materialIds, buyerAddress) => {
+    return apiClient('/api/entitlements/batch', { body: { materialIds, buyerAddress } });
   },
 
   getPurchaseHistory: async () => {

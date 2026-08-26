@@ -3129,3 +3129,281 @@ fn upgrade_requires_admin_signature() {
     let result = client.try_upgrade(&admin, &new_wasm_hash);
     assert!(result.is_err());
 }
+
+// ============== Batch Entitlement Tests ==============
+
+#[test]
+fn batch_returns_false_for_all_when_no_purchases() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let registry = env.register(MockRegistry, ());
+    let treasury = Address::generate(&env);
+    let buyer = Address::generate(&env);
+
+    let (_, client) = install_and_init_contract(&env, &admin, &registry, &treasury, 500);
+
+    let ids = vec![&env, bytes32(&env, 1), bytes32(&env, 2), bytes32(&env, 3)];
+    let results = client.check_entitlements_batch(&ids, &buyer);
+
+    assert_eq!(results.len(), 3);
+    assert!(!results.get_unchecked(0));
+    assert!(!results.get_unchecked(1));
+    assert!(!results.get_unchecked(2));
+}
+
+#[test]
+fn batch_returns_true_only_for_purchased_materials() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let registry = env.register(MockRegistry, ());
+    let treasury = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let asset = env.register(MockAsset, ());
+
+    let (_, client) = install_and_init_contract(&env, &admin, &registry, &treasury, 500);
+    client.set_asset_allowed(&admin, &asset, &AssetKind::Token, &true);
+
+    // Register and purchase material 1 only
+    let id1 = bytes32(&env, 1);
+    let id2 = bytes32(&env, 2);
+    let id3 = bytes32(&env, 3);
+
+    let registry_client = MockRegistryClient::new(&env, &registry);
+    registry_client.set_material(
+        &id1,
+        &MaterialRecord {
+            material_id: id1.clone(),
+            creator: creator.clone(),
+            paused: false,
+            status: MaterialStatus::Active,
+            quotes: vec![&env, AssetQuote { asset: asset.clone(), amount: 1_000_000 }],
+            payout_shares: vec![&env, PayoutShare { recipient: creator.clone(), share_bps: 10_000 }],
+        },
+    );
+
+    client.purchase(&buyer, &id1, &asset, &1_000_000, &sample_transaction_id(&env));
+
+    let ids = vec![&env, id1.clone(), id2.clone(), id3.clone()];
+    let results = client.check_entitlements_batch(&ids, &buyer);
+
+    assert_eq!(results.len(), 3);
+    assert!(results.get_unchecked(0), "id1 should be entitled");
+    assert!(!results.get_unchecked(1), "id2 should not be entitled");
+    assert!(!results.get_unchecked(2), "id3 should not be entitled");
+}
+
+#[test]
+fn batch_returns_true_for_multiple_purchased_materials() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let registry = env.register(MockRegistry, ());
+    let treasury = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let asset = env.register(MockAsset, ());
+
+    let (_, client) = install_and_init_contract(&env, &admin, &registry, &treasury, 500);
+    client.set_asset_allowed(&admin, &asset, &AssetKind::Token, &true);
+
+    let registry_client = MockRegistryClient::new(&env, &registry);
+
+    // Register and purchase 3 materials
+    let mut ids: soroban_sdk::Vec<BytesN<32>> = soroban_sdk::Vec::new(&env);
+    let mut idx = 0u8;
+    while idx < 3 {
+        let mid = bytes32(&env, idx + 1);
+        registry_client.set_material(
+            &mid,
+            &MaterialRecord {
+                material_id: mid.clone(),
+                creator: creator.clone(),
+                paused: false,
+                status: MaterialStatus::Active,
+                quotes: vec![&env, AssetQuote { asset: asset.clone(), amount: 500_000 }],
+                payout_shares: vec![&env, PayoutShare { recipient: creator.clone(), share_bps: 10_000 }],
+            },
+        );
+        client.purchase(&buyer, &mid, &asset, &500_000, &sample_transaction_id(&env));
+        ids.push_back(mid);
+        idx += 1;
+    }
+
+    let results = client.check_entitlements_batch(&ids, &buyer);
+
+    assert_eq!(results.len(), 3);
+    assert!(results.get_unchecked(0));
+    assert!(results.get_unchecked(1));
+    assert!(results.get_unchecked(2));
+}
+
+#[test]
+fn batch_result_is_buyer_specific() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let registry = env.register(MockRegistry, ());
+    let treasury = Address::generate(&env);
+    let buyer_a = Address::generate(&env);
+    let buyer_b = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let asset = env.register(MockAsset, ());
+
+    let (_, client) = install_and_init_contract(&env, &admin, &registry, &treasury, 500);
+    client.set_asset_allowed(&admin, &asset, &AssetKind::Token, &true);
+
+    let id1 = bytes32(&env, 1);
+    let id2 = bytes32(&env, 2);
+
+    let registry_client = MockRegistryClient::new(&env, &registry);
+
+    // buyer_a purchases id1
+    registry_client.set_material(
+        &id1,
+        &MaterialRecord {
+            material_id: id1.clone(),
+            creator: creator.clone(),
+            paused: false,
+            status: MaterialStatus::Active,
+            quotes: vec![&env, AssetQuote { asset: asset.clone(), amount: 1_000_000 }],
+            payout_shares: vec![&env, PayoutShare { recipient: creator.clone(), share_bps: 10_000 }],
+        },
+    );
+    // buyer_b purchases id2
+    registry_client.set_material(
+        &id2,
+        &MaterialRecord {
+            material_id: id2.clone(),
+            creator: creator.clone(),
+            paused: false,
+            status: MaterialStatus::Active,
+            quotes: vec![&env, AssetQuote { asset: asset.clone(), amount: 1_000_000 }],
+            payout_shares: vec![&env, PayoutShare { recipient: creator.clone(), share_bps: 10_000 }],
+        },
+    );
+
+    client.purchase(&buyer_a, &id1, &asset, &1_000_000, &sample_transaction_id(&env));
+    client.purchase(&buyer_b, &id2, &asset, &1_000_000, &sample_transaction_id(&env));
+
+    let ids = vec![&env, id1.clone(), id2.clone()];
+
+    // buyer_a: owns id1, not id2
+    let results_a = client.check_entitlements_batch(&ids, &buyer_a);
+    assert!(results_a.get_unchecked(0), "buyer_a should have id1");
+    assert!(!results_a.get_unchecked(1), "buyer_a should not have id2");
+
+    // buyer_b: owns id2, not id1
+    let results_b = client.check_entitlements_batch(&ids, &buyer_b);
+    assert!(!results_b.get_unchecked(0), "buyer_b should not have id1");
+    assert!(results_b.get_unchecked(1), "buyer_b should have id2");
+}
+
+#[test]
+fn batch_with_empty_input_returns_empty_vec() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let registry = env.register(MockRegistry, ());
+    let treasury = Address::generate(&env);
+    let buyer = Address::generate(&env);
+
+    let (_, client) = install_and_init_contract(&env, &admin, &registry, &treasury, 500);
+
+    let empty_ids: soroban_sdk::Vec<BytesN<32>> = soroban_sdk::Vec::new(&env);
+    let results = client.check_entitlements_batch(&empty_ids, &buyer);
+    assert_eq!(results.len(), 0);
+}
+
+#[test]
+fn batch_caps_at_max_fifty_and_pads_remainder_with_false() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let registry = env.register(MockRegistry, ());
+    let treasury = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let asset = env.register(MockAsset, ());
+
+    let (_, client) = install_and_init_contract(&env, &admin, &registry, &treasury, 500);
+    client.set_asset_allowed(&admin, &asset, &AssetKind::Token, &true);
+
+    // Build a list of 55 material IDs; purchase the first 50
+    let registry_client = MockRegistryClient::new(&env, &registry);
+    let mut ids: soroban_sdk::Vec<BytesN<32>> = soroban_sdk::Vec::new(&env);
+
+    // We only have 256 distinct single-byte fill values; use modulo wrapping
+    // and vary by appending the index in the last byte instead.
+    let mut i = 0u32;
+    while i < 55 {
+        // Build a distinct 32-byte ID for each index
+        let mut arr = [0u8; 32];
+        arr[30] = (i >> 8) as u8;
+        arr[31] = (i & 0xff) as u8;
+        let mid = BytesN::from_array(&env, &arr);
+
+        if i < 50 {
+            registry_client.set_material(
+                &mid,
+                &MaterialRecord {
+                    material_id: mid.clone(),
+                    creator: creator.clone(),
+                    paused: false,
+                    status: MaterialStatus::Active,
+                    quotes: vec![&env, AssetQuote { asset: asset.clone(), amount: 100_000 }],
+                    payout_shares: vec![&env, PayoutShare { recipient: creator.clone(), share_bps: 10_000 }],
+                },
+            );
+            client.purchase(&buyer, &mid, &asset, &100_000, &sample_transaction_id(&env));
+        }
+
+        ids.push_back(mid);
+        i += 1;
+    }
+
+    let results = client.check_entitlements_batch(&ids, &buyer);
+
+    // Response length must equal input length (55)
+    assert_eq!(results.len(), 55);
+
+    // First 50 are entitled (purchased)
+    let mut j = 0u32;
+    while j < 50 {
+        assert!(results.get_unchecked(j), "index {} should be entitled", j);
+        j += 1;
+    }
+
+    // Slots 50-54 are padded false (over the cap)
+    while j < 55 {
+        assert!(!results.get_unchecked(j), "index {} should be false (over cap)", j);
+        j += 1;
+    }
+}
+
+#[test]
+fn batch_returns_false_after_entitlement_revoked() {
+    let env = Env::default();
+    let (contract_id, client, admin, buyer, _creator, asset, material_id, purchase_id) =
+        setup_refund_scenario(&env);
+    let _ = contract_id;
+
+    // Sanity: buyer has entitlement before refund
+    let ids = vec![&env, material_id.clone()];
+    let before = client.check_entitlements_batch(&ids, &buyer);
+    assert!(before.get_unchecked(0), "should be entitled before refund");
+
+    // Refund revokes the entitlement
+    client.process_refund(&admin, &purchase_id, &buyer);
+
+    let after = client.check_entitlements_batch(&ids, &buyer);
+    assert!(!after.get_unchecked(0), "should not be entitled after refund");
+}
