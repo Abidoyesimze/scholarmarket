@@ -124,9 +124,12 @@ export default function Navbar() {
 					</Link>
 				</div>
 
-				{/* Actions */}
-				<div className="flex items-center gap-4">
-					<NotificationCenter />
+			{/* Actions */}
+			<div className="flex items-center gap-4">
+				<div className="hidden md:block">
+					<ThemeToggle />
+				</div>
+				<NotificationCenter />
 					{/* Shopping Cart Drawer Trigger */}
 					<button
 						onClick={() => setIsCartOpen(true)}
