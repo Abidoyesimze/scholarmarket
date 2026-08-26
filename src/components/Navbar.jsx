@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { formatAddress } from "@/utils/formatAddress";
 import { WalletButton } from "./WalletBtn";
@@ -19,6 +19,7 @@ export default function Navbar() {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [scrolled, setScrolled] = useState(false);
 	const router = useRouter();
+	const navRef = useRef(null);
 	const { cartItems, setIsCartOpen } = useCart();
 	const [copied, setCopied] = useState(false);
 
@@ -48,6 +49,29 @@ export default function Navbar() {
 		return () => window.removeEventListener("scroll", handleScroll);
 	}, []);
 
+	useEffect(() => {
+		if (!menuOpen) return undefined;
+
+		const handlePointerDown = (event) => {
+			if (navRef.current && !navRef.current.contains(event.target)) {
+				setMenuOpen(false);
+			}
+		};
+
+		const handleKeyDown = (event) => {
+			if (event.key === "Escape") {
+				setMenuOpen(false);
+			}
+		};
+
+		document.addEventListener("mousedown", handlePointerDown);
+		document.addEventListener("keydown", handleKeyDown);
+		return () => {
+			document.removeEventListener("mousedown", handlePointerDown);
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [menuOpen]);
+
 	return (
 		<header 
 			className={`fixed top-0 left-0 right-0 flex justify-center py-4 px-4 md:px-0 z-[100] transition-all duration-300 ${
@@ -55,6 +79,7 @@ export default function Navbar() {
 			}`}
 		>
 			<motion.nav
+				ref={navRef}
 				initial={{ y: -40, opacity: 0 }}
 				animate={{ y: 0, opacity: 1 }}
 				transition={{ duration: 0.6, ease: "easeOut" }}
