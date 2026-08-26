@@ -5,25 +5,34 @@ export const dynamic = "force-dynamic";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  FiActivity as Activity,
   FiArrowUpRight as ArrowUpRight,
   FiBarChart2 as BarChart,
   FiBookOpen as BookOpen,
   FiCheckCircle as CheckCircle,
+  FiDollarSign as DollarSign,
   FiShoppingBag as ShoppingBag,
   FiUpload as Upload,
   FiUsers as Users,
 } from "react-icons/fi";
 
-const EMPTY_CHART = [
-  { day: "Mon", revenue: 0, orders: 0, uploads: 0, interest: 0 },
-  { day: "Tue", revenue: 0, orders: 0, uploads: 0, interest: 0 },
-  { day: "Wed", revenue: 0, orders: 0, uploads: 0, interest: 0 },
-  { day: "Thu", revenue: 0, orders: 0, uploads: 0, interest: 0 },
-  { day: "Fri", revenue: 0, orders: 0, uploads: 0, interest: 0 },
-  { day: "Sat", revenue: 0, orders: 0, uploads: 0, interest: 0 },
-  { day: "Sun", revenue: 0, orders: 0, uploads: 0, interest: 0 },
-];
+function buildEmptyChart(days = 30) {
+  const rows = [];
+  const now = new Date();
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const date = new Date(now);
+    date.setDate(now.getDate() - i);
+    rows.push({
+      day: `${date.getMonth() + 1}/${date.getDate()}`,
+      revenue: 0,
+      orders: 0,
+      uploads: 0,
+      interest: 0,
+    });
+  }
+  return rows;
+}
+
+const EMPTY_CHART = buildEmptyChart();
 
 function formatCurrency(value) {
   return `$${Number(value ?? 0).toFixed(2)}`;
@@ -92,6 +101,7 @@ function ActivityChart({ data }) {
   const xStep = (W - PAD.left - PAD.right) / Math.max(rows.length - 1, 1);
   const yScale = (value) =>
     PAD.top + (H - PAD.top - PAD.bottom) * (1 - Number(value ?? 0) / maxMetric);
+  const labelEvery = Math.max(1, Math.ceil(rows.length / 7));
 
   const points = rows.map((row, index) => ({
     x: PAD.left + index * xStep,
@@ -161,18 +171,20 @@ function ActivityChart({ data }) {
         {points.map((point, index) => (
           <circle key={index} cx={point.x} cy={point.y} r="4" fill="#2563eb" />
         ))}
-        {rows.map((row, index) => (
-          <text
-            key={index}
-            x={PAD.left + index * xStep}
-            y={H - PAD.bottom + 24}
-            textAnchor="middle"
-            fontSize="12"
-            fill="#6b7280"
-          >
-            {row.day}
-          </text>
-        ))}
+        {rows.map((row, index) =>
+          index % labelEvery === 0 ? (
+            <text
+              key={index}
+              x={PAD.left + index * xStep}
+              y={H - PAD.bottom + 24}
+              textAnchor="middle"
+              fontSize="12"
+              fill="#6b7280"
+            >
+              {row.day}
+            </text>
+          ) : null
+        )}
       </svg>
       <div className="mt-3 flex flex-wrap gap-4 text-xs font-medium text-gray-500">
         <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-blue-600" />Revenue</span>
@@ -215,17 +227,24 @@ export default function AnalyticsPage() {
   const cards = useMemo(
     () => [
       {
-        title: "Uploads",
-        value: String(data?.uploadCount ?? 0),
-        sub: `${data?.publishedCount ?? 0} visible, ${data?.draftCount ?? 0} private`,
-        icon: BookOpen,
+        title: "Total Revenue",
+        value: formatCurrency(data?.totalRevenue),
+        sub: `${data?.completedOrders ?? 0} completed orders`,
+        icon: DollarSign,
+        color: "bg-emerald-600",
+      },
+      {
+        title: "Total Sales",
+        value: String(data?.completedOrders ?? 0),
+        sub: `${data?.pendingCount ?? 0} pending or indexing`,
+        icon: CheckCircle,
         color: "bg-blue-600",
       },
       {
-        title: "Material Activity",
-        value: String(data?.materialActivity ?? 0),
-        sub: "Views, downloads, and reviews",
-        icon: Activity,
+        title: "Active Materials",
+        value: String(data?.publishedCount ?? 0),
+        sub: `${data?.draftCount ?? 0} private, ${data?.uploadCount ?? 0} total uploads`,
+        icon: BookOpen,
         color: "bg-slate-700",
       },
       {
@@ -234,13 +253,6 @@ export default function AnalyticsPage() {
         sub: `${data?.savedCount ?? 0} saves, ${data?.pendingCount ?? 0} pending`,
         icon: Users,
         color: "bg-amber-500",
-      },
-      {
-        title: "Completed Orders",
-        value: String(data?.completedOrders ?? 0),
-        sub: `${formatCurrency(data?.totalRevenue)} confirmed revenue`,
-        icon: CheckCircle,
-        color: "bg-emerald-600",
       },
     ],
     [data]
@@ -283,11 +295,11 @@ export default function AnalyticsPage() {
           <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-base font-semibold text-gray-900">Performance Trend</h2>
-              <p className="text-sm text-gray-500">Revenue, orders, and learner saves from the last 7 days.</p>
+              <p className="text-sm text-gray-500">Revenue, orders, and learner saves over the last {chartData.length} days.</p>
             </div>
             <span className="inline-flex w-fit items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
               <BarChart size={14} />
-              7 days
+              {chartData.length} days
             </span>
           </div>
           {loading ? <Skeleton className="h-64 w-full" /> : <ActivityChart data={chartData} />}
