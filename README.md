@@ -168,6 +168,7 @@ npm run test:backend
 ## Documentation
 
 - [Architecture](docs/architecture.md)
+- [Smart Contracts](docs/smart-contracts.md)
 - [Project Workflows](docs/project-workflows.md)
 - [User Flows](docs/user-flows.md)
 - [Environment Setup](docs/environment-setup.md)
