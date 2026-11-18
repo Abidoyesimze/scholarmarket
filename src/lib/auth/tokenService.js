@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
-import { getDb } from "@/lib/mongodb";
+import { getDb } from "../mongodb.js";
 import { ObjectId } from "mongodb";
 
 const ACCESS_TOKEN_TTL_SECONDS = 15 * 60; // 15 minutes
