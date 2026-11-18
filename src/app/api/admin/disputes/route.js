@@ -3,25 +3,15 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
-import { verifyDashboardToken } from "@/lib/auth/session";
-
-async function getAdminUser(request) {
-  const cookieHeader = request.headers.get("cookie") || "";
-  const cookieMatch = cookieHeader.match(/auth_token=([^;]+)/);
-  const token = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
-  if (!token) return null;
-  const verification = await verifyDashboardToken(token, process.env.JWT_SECRET);
-  if (!verification.valid) return null;
-  // Extend this check once a role field is added to the users collection
-  return verification.payload;
-}
+import { verifyAdminAuth } from "@/lib/auth/adminAuth";
 
 export async function GET(request) {
   try {
-    const user = await getAdminUser(request);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await verifyAdminAuth(request);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
+    const user = auth.user;
 
     const db = await getDb();
     const disputes = await db
@@ -40,10 +30,11 @@ export async function GET(request) {
 
 export async function PATCH(request) {
   try {
-    const user = await getAdminUser(request);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await verifyAdminAuth(request);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
+    const user = auth.user;
 
     const { disputeId, status, resolution } = await request.json();
     if (!disputeId || !status) {

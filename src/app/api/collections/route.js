@@ -1,23 +1,10 @@
 import { NextResponse } from "next/server";
 import { withApiHardening } from "@/lib/api/hardening";
-import jwt from "jsonwebtoken";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { getUserFromCookie } from "@/lib/api/auth";
 
 export const runtime = "nodejs";
-
-async function getUserFromCookie(request) {
-  const cookieHeader = request.headers.get("cookie") || "";
-  const cookieMatch = cookieHeader.match(/auth_token=([^;]+)/);
-  const token = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
-  if (!token) return null;
-  try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    return payload;
-  } catch {
-    return null;
-  }
-}
 
 export async function POST(request) {
   return withApiHardening(

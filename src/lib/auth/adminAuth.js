@@ -1,5 +1,6 @@
 // src/lib/auth/adminAuth.js
 import { verifyDashboardToken } from "./session.js";
+import { getAuthToken } from "../api/auth.js";
 
 /**
  * Checks whether a user object has admin privileges.
@@ -14,22 +15,7 @@ export function isAdmin(user) {
  * @returns {Promise<object|null>}
  */
 export async function getAdminUserFromRequest(request) {
-  let token = null;
-
-  // 1. Check cookie
-  const cookieHeader = request.headers.get("cookie") || "";
-  const cookieMatch = cookieHeader.match(/auth_token=([^;]+)/);
-  if (cookieMatch) {
-    token = decodeURIComponent(cookieMatch[1]);
-  }
-
-  // 2. Check Authorization header
-  if (!token) {
-    const authHeader = request.headers.get("authorization") || "";
-    if (authHeader.toLowerCase().startsWith("bearer ")) {
-      token = authHeader.slice(7).trim();
-    }
-  }
+  const token = getAuthToken(request);
 
   if (!token) return null;
 
