@@ -13,7 +13,9 @@ import {
   FiShoppingBag as ShoppingBag,
   FiUpload as Upload,
   FiUsers as Users,
+  FiDownload,
 } from "react-icons/fi";
+import { useToast } from "@/hooks/useToast";
 
 function buildEmptyChart(days = 30) {
   const rows = [];
@@ -196,6 +198,16 @@ function ActivityChart({ data }) {
 }
 
 export default function AnalyticsPage() {
+  const toast = useToast();
+  const today = new Date();
+  const defaultFrom = new Date(today);
+  defaultFrom.setDate(today.getDate() - 30);
+  const [dateRange, setDateRange] = useState(() => ({
+    from: defaultFrom.toISOString().slice(0, 10),
+    to: today.toISOString().slice(0, 10),
+  }));
+  const [exporting, setExporting] = useState(false);
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -203,7 +215,8 @@ export default function AnalyticsPage() {
   useEffect(() => {
     async function fetchAnalytics() {
       try {
-        const res = await fetch("/api/creator/analytics");
+        const params = new URLSearchParams({ from: dateRange.from, to: dateRange.to });
+        const res = await fetch(`/api/creator/analytics?${params.toString()}`);
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body.error ?? `Request failed (${res.status})`);
@@ -217,7 +230,7 @@ export default function AnalyticsPage() {
     }
 
     fetchAnalytics();
-  }, []);
+  }, [dateRange.from, dateRange.to]);
 
   const chartData = data?.chartData?.length ? data.chartData : EMPTY_CHART;
   const topMaterials = data?.topMaterials ?? [];
@@ -258,6 +271,37 @@ export default function AnalyticsPage() {
     [data]
   );
 
+  const exportCsv = async () => {
+    if (exporting) return;
+    if (!dateRange.from || !dateRange.to || dateRange.from > dateRange.to) {
+      toast.show({ title: "Invalid date range", message: "Choose a valid start and end date.", type: "error" });
+      return;
+    }
+    setExporting(true);
+    try {
+      const params = new URLSearchParams({ from: dateRange.from, to: dateRange.to });
+      const res = await fetch(`/api/creator/analytics/export?${params.toString()}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Export failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `scholarmarket-analytics-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast.show({ title: "Export ready", message: "Your analytics CSV has been downloaded.", type: "success" });
+    } catch (err) {
+      toast.show({ title: "Export failed", message: err.message, type: "error" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -274,6 +318,38 @@ export default function AnalyticsPage() {
           <Upload size={16} />
           Upload
         </Link>
+      </div>
+
+      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
+        <label className="text-xs font-semibold text-gray-600">
+          From
+          <input
+            type="date"
+            value={dateRange.from}
+            max={dateRange.to}
+            onChange={(event) => setDateRange((current) => ({ ...current, from: event.target.value }))}
+            className="mt-1 block rounded-full border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-blue-500"
+          />
+        </label>
+        <label className="text-xs font-semibold text-gray-600">
+          To
+          <input
+            type="date"
+            value={dateRange.to}
+            min={dateRange.from}
+            onChange={(event) => setDateRange((current) => ({ ...current, to: event.target.value }))}
+            className="mt-1 block rounded-full border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-blue-500"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={exportCsv}
+          disabled={exporting}
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <FiDownload size={16} />
+          {exporting ? "Exporting..." : "Export CSV"}
+        </button>
       </div>
 
       {error && (
