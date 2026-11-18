@@ -91,7 +91,7 @@ test("Admin Auth — Request verification with JWT", async (t) => {
     const req = createMockRequest();
     const auth = await verifyAdminAuth(req);
     assert.equal(auth.authorized, false);
-    assert.equal(auth.status, 403);
+    assert.equal(auth.status, 401);
   });
 
   await t.test("rejects invalid signature token", async () => {

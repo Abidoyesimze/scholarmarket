@@ -1,8 +1,30 @@
 /**
+ * Retrieve CSRF token from document cookies (double-submit pattern).
+ */
+export function getCsrfTokenFromCookie() {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+  if (match) {
+    try {
+      return decodeURIComponent(match[1]);
+    } catch {
+      return match[1];
+    }
+  }
+  return null;
+}
+
+/**
  * A lightweight fetch wrapper for public and authenticated API calls.
  */
 export async function apiClient(endpoint, { body, ...customConfig } = {}) {
   const headers = { 'Content-Type': 'application/json' };
+
+  // Attach CSRF header for double-submit protection
+  const csrfToken = getCsrfTokenFromCookie();
+  if (csrfToken) {
+    headers['x-csrf-token'] = csrfToken;
+  }
 
   const config = {
     method: body ? 'POST' : 'GET',

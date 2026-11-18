@@ -7,6 +7,10 @@ import { logger } from "@/lib/logger";
 export async function POST(request) {
   try {
     const user = await getUserFromCookie(request);
+
+    const cookieHeader = request.headers.get("cookie") || "";
+    const refreshMatch = cookieHeader.match(/(?:^|;\s*)refresh_token=([^;]+)/);
+    const refreshToken = refreshMatch ? decodeURIComponent(refreshMatch[1]) : null;
     
     // Even if user isn't found, we'll try to clear the cookie
     const response = NextResponse.json({ success: true });
@@ -14,7 +18,7 @@ export async function POST(request) {
     // Expire the cookies by setting maxAge to 0
     response.cookies.set('auth_token', '', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true,
       sameSite: 'lax',
       path: '/',
       maxAge: 0,
@@ -22,16 +26,21 @@ export async function POST(request) {
 
     response.cookies.set('refresh_token', '', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true,
       sameSite: 'strict',
       path: '/api/auth/refresh',
       maxAge: 0,
     });
 
+    const db = await getDb();
+    if (refreshToken) {
+      await db.collection('refresh_tokens').deleteMany({ token: refreshToken });
+    }
+
     if (user) {
-      const db = await getDb();
+      const identifiers = [user.sub, user._id?.toString(), user.id?.toString(), user.walletAddress].filter(Boolean);
       await db.collection('refresh_tokens').deleteMany({
-        userId: String(user._id || user.id || user.walletAddress)
+        userId: { $in: identifiers }
       });
       
       auditLog({
