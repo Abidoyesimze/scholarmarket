@@ -20,7 +20,7 @@ import ResourceStatusBadge from "@/components/materials/ResourceStatusBadge";
 import { motion } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import BuyNowModal from "./modals/BuyNowModal";
-import { useParams } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import { useMaterialDetail } from "@/hooks/api/useMaterials";
 import { useEntitlement } from "@/hooks/api/useEntitlements";
 import { QueryStateProvider } from "@/components/common/QueryStateProvider";
@@ -622,6 +622,12 @@ export default function MaterialDetailsPage() {
 			trackRecentlyViewed(materialQuery.data);
 		}
 	}, [materialQuery.data]);
+
+	useEffect(() => {
+		if (materialQuery.isError && materialQuery.error?.status === 404) {
+			notFound();
+		}
+	}, [materialQuery.isError, materialQuery.error]);
 
 	return (
 		<>
