@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from 'next/server'
 import { verifyEntitlement } from '@/lib/entitlement'
 
+import { logger } from "@/lib/logger";
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url)
@@ -23,7 +24,7 @@ export async function GET(req) {
       { status: 200 }
     )
   } catch (error) {
-    console.error('Entitlement Check Error:', error)
+    logger.error('Entitlement Check Error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

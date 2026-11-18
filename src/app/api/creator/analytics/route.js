@@ -3,6 +3,7 @@ import { getDb } from "@/lib/mongodb";
 import { getUserFromCookie } from "@/lib/api/auth";
 
 export const dynamic = "force-dynamic";
+import { logger } from "@/lib/logger";
 export const runtime = "nodejs";
 
 const COMPLETED_PURCHASE_STATUSES = ["confirmed", "settled", "completed"];
@@ -453,7 +454,7 @@ export async function GET(request) {
       },
     });
   } catch (error) {
-    console.error("[analytics] GET error:", error);
+    logger.error("[analytics] GET error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { logger } from "@/lib/logger";
 export const maxDuration = 60;
 
 import { NextResponse } from "next/server";
@@ -47,7 +48,7 @@ export async function POST(request) {
   try {
     db = await getDb();
   } catch (err) {
-    console.error("[indexer] DB connection failed:", err);
+    logger.error("[indexer] DB connection failed:", err);
     return NextResponse.json(
       { error: "Database unavailable" },
       { status: 503 }
@@ -62,7 +63,7 @@ export async function POST(request) {
       limit: BATCH_LIMIT,
     });
 
-    console.log(
+    logger.info(
       `[indexer] batch complete — applied:${result.applied} skipped:${result.skipped} cursor:${result.nextCursor}`
     );
 
@@ -73,7 +74,7 @@ export async function POST(request) {
       nextCursor: result.nextCursor,
     });
   } catch (err) {
-    console.error("[indexer] batch error:", err);
+    logger.error("[indexer] batch error:", err);
     return NextResponse.json(
       { error: "Indexer batch failed", detail: err.message },
       { status: 500 }

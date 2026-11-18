@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 // Resolves: Implement a secure API route that receives file uploads and pins them to IPFS via Pinata.
 import { NextResponse } from 'next/server'
 import { auditLog } from '@/lib/api/audit'
@@ -210,7 +211,7 @@ export async function POST(request) {
             3,
             1000,
             (err, attempt) => {
-              console.warn(`[Storage] Document upload attempt ${attempt} failed: ${err.message}`);
+              logger.warn(`[Storage] Document upload attempt ${attempt} failed: ${err.message}`);
             }
           )
           validatePinataResponse(uploadedFile, 'document')
@@ -220,7 +221,7 @@ export async function POST(request) {
             3,
             1000,
             (err, attempt) => {
-              console.warn(`[Storage] Document gateway conversion attempt ${attempt} failed: ${err.message}`);
+              logger.warn(`[Storage] Document gateway conversion attempt ${attempt} failed: ${err.message}`);
             }
           )
           validateGatewayUrl(fileUrl, 'document')
@@ -248,7 +249,7 @@ export async function POST(request) {
               3,
               1000,
               (err, attempt) => {
-                console.warn(`[Storage] Thumbnail upload attempt ${attempt} failed: ${err.message}`);
+                logger.warn(`[Storage] Thumbnail upload attempt ${attempt} failed: ${err.message}`);
               }
             )
             validatePinataResponse(fileThumb, 'thumbnail')
@@ -258,7 +259,7 @@ export async function POST(request) {
               3,
               1000,
               (err, attempt) => {
-                console.warn(`[Storage] Thumbnail gateway conversion attempt ${attempt} failed: ${err.message}`);
+                logger.warn(`[Storage] Thumbnail gateway conversion attempt ${attempt} failed: ${err.message}`);
               }
             )
             validateGatewayUrl(imgUrl, 'thumbnail')
@@ -361,7 +362,7 @@ export async function POST(request) {
             3,
             1000,
             (err, attempt) => {
-              console.warn(`[Storage] Metadata upload attempt ${attempt} failed: ${err.message}`);
+              logger.warn(`[Storage] Metadata upload attempt ${attempt} failed: ${err.message}`);
             }
           )
           validatePinataResponse(uploadedJson, 'metadata')
@@ -371,7 +372,7 @@ export async function POST(request) {
             3,
             1000,
             (err, attempt) => {
-              console.warn(`[Storage] Metadata gateway conversion attempt ${attempt} failed: ${err.message}`);
+              logger.warn(`[Storage] Metadata gateway conversion attempt ${attempt} failed: ${err.message}`);
             }
           )
           validateGatewayUrl(jsonUrl, 'metadata')

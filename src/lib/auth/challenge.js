@@ -1,13 +1,13 @@
-import { getDb } from '@/lib/mongodb';
-import { NETWORK_PASSPHRASE } from '@/lib/config/chain';
-import { Transaction, xdr, Keypair } from '@stellar/stellar-sdk';
+import { getDb } from '../mongodb.js';
+import { NETWORK_PASSPHRASE } from '../config/chain.js';
+import { TransactionBuilder, Keypair } from '@stellar/stellar-sdk';
 import crypto from 'crypto';
 
-const CHALLENGE_TTL_MS = 5 * 60 * 1000;
+export const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 const CHALLENGE_CLEANUP_INTERVAL_MS = 60 * 1000;
 
 function generateNonce() {
-  const bytes = new Uint8Array(32);
+  const bytes = new Uint8Array(14);
   crypto.getRandomValues(bytes);
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
@@ -23,7 +23,7 @@ function getChallengeMessage(nonce, address, domainSeparation) {
 }
 
 export async function issueChallenge(address, options = {}) {
-  const db = await getDb();
+  const db = options.db || await getDb();
   const nonce = generateNonce();
   const expiresAt = new Date(Date.now() + CHALLENGE_TTL_MS);
   const issuedAt = new Date();
@@ -56,7 +56,7 @@ export async function issueChallenge(address, options = {}) {
 }
 
 export async function verifyChallenge(address, nonce, signedTransactionXdr, options = {}) {
-  const db = await getDb();
+  const db = options.db || await getDb();
   const addressLower = address.toLowerCase();
 
   const challenge = await db.collection('auth_challenges').findOne({
@@ -79,7 +79,7 @@ export async function verifyChallenge(address, nonce, signedTransactionXdr, opti
   }
 
   try {
-    const tx = Transaction.fromXDR(signedTransactionXdr, NETWORK_PASSPHRASE);
+    const tx = TransactionBuilder.fromXDR(signedTransactionXdr, NETWORK_PASSPHRASE);
 
     const txSource = tx.source;
     if (txSource !== address) {
@@ -93,7 +93,7 @@ export async function verifyChallenge(address, nonce, signedTransactionXdr, opti
       return { valid: false, reason: 'Transaction memo does not match challenge nonce' };
     }
 
-    const txHash = tx.hash().toString('hex');
+    const txHash = tx.hash();
     const isSigned = tx.signatures.some((sig) => {
       try {
         const keypair = Keypair.fromPublicKey(address);

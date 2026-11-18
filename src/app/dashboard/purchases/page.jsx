@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback } from "react";
 import { FaDownload, FaExternalLinkAlt, FaShoppingBag, FaSpinner, FaCheckCircle } from "react-icons/fa";
 import { MdOutlineSchool } from "react-icons/md";
 import { getExplorerTxUrl } from "@/lib/config/chain";
+import Image from "next/image";
 
 function formatDate(dateStr) {
   if (!dateStr) return "—";
@@ -175,10 +176,11 @@ function PurchasedMaterialCard({ item }) {
       {/* Thumbnail / placeholder */}
       <div className="w-full h-36 bg-linear-to-br from-blue-50 to-purple-50 rounded-t-xl flex items-center justify-center overflow-hidden">
         {material?.thumbnailUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={material.thumbnailUrl}
             alt={title}
+            width={576}
+            height={144}
             className="w-full h-full object-cover"
           />
         ) : (

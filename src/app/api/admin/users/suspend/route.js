@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic'
+import { logger } from "@/lib/logger";
 export const runtime = 'nodejs'
 
 import { NextResponse } from 'next/server'
@@ -103,9 +104,9 @@ export async function POST(request) {
           await sendReactivationEmail({ to: recipientEmail, name: recipientName })
         }
         emailSent = true
-        console.log(JSON.stringify({ level: 'info', event: 'suspension_email_sent', to: recipientEmail, action, timestamp: new Date().toISOString() }))
+        logger.info(JSON.stringify({ level: 'info', event: 'suspension_email_sent', to: recipientEmail, action, timestamp: new Date().toISOString() }))
       } catch (emailErr) {
-        console.error(JSON.stringify({ level: 'error', event: 'suspension_email_failed', to: recipientEmail, error: emailErr.message, timestamp: new Date().toISOString() }))
+        logger.error(JSON.stringify({ level: 'error', event: 'suspension_email_failed', to: recipientEmail, error: emailErr.message, timestamp: new Date().toISOString() }))
       }
     }
 

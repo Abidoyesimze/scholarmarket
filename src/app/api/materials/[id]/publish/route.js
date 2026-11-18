@@ -8,6 +8,7 @@ import {
   validatePublishRequest,
   getPublishingChecklist,
 } from "@/lib/publishing/checklist";
+import { logger } from "@/lib/logger";
 
 /**
  * POST /api/materials/[id]/publish
@@ -123,7 +124,7 @@ export async function POST(request, { params }) {
       { status: 200 }
     );
   } catch (err) {
-    console.error("Publish error:", err);
+    logger.error("Publish error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
@@ -169,7 +170,7 @@ export async function GET(request, { params }) {
       checklist,
     });
   } catch (err) {
-    console.error("Publish checklist error:", err);
+    logger.error("Publish checklist error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

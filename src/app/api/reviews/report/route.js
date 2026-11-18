@@ -3,6 +3,7 @@ import { getDb } from "@/lib/mongodb";
 import { validateAuth } from "@/lib/auth/session";
 import { ObjectId } from "mongodb";
 
+import { logger } from "@/lib/logger";
 /**
  * POST /api/reviews/report
  * Allows creators to flag reviews on their materials for moderation
@@ -132,7 +133,7 @@ export async function POST(request) {
       { status: 201 },
     );
   } catch (error) {
-    console.error("Error reporting review:", error);
+    logger.error("Error reporting review:", error);
     return NextResponse.json(
       { error: "Failed to report review", details: error.message },
       { status: 500 },
@@ -184,7 +185,7 @@ export async function GET(request) {
       })),
     });
   } catch (error) {
-    console.error("Error fetching reported reviews:", error);
+    logger.error("Error fetching reported reviews:", error);
     return NextResponse.json(
       { error: "Failed to fetch reported reviews", details: error.message },
       { status: 500 },

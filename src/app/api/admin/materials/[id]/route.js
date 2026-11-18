@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { logger } from "@/lib/logger";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -56,7 +57,7 @@ export async function DELETE(request, context) {
               unpinResults.push({ cid, status: "unpinned" });
             }
           } catch (unpinErr) {
-            console.warn(`[Pinata] Failed to unpin CID ${cid}:`, unpinErr.message);
+            logger.warn(`[Pinata] Failed to unpin CID ${cid}:`, unpinErr.message);
             unpinResults.push({ cid, status: "unpin_failed", error: unpinErr.message });
           }
         }

@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { logger } from "@/lib/logger";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -33,7 +34,7 @@ export async function GET(request) {
 
     return NextResponse.json({ disputes });
   } catch (error) {
-    console.error("[admin/disputes] GET error:", error);
+    logger.error("[admin/disputes] GET error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
@@ -70,7 +71,7 @@ export async function PATCH(request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("[admin/disputes] PATCH error:", error);
+    logger.error("[admin/disputes] PATCH error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

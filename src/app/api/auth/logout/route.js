@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getUserFromCookie } from '@/lib/api/auth';
 import { auditLog } from '@/lib/api/audit';
 
+import { logger } from "@/lib/logger";
 export async function POST(request) {
   try {
     const user = await getUserFromCookie(request);
@@ -44,7 +45,7 @@ export async function POST(request) {
 
     return response;
   } catch (error) {
-    console.error('POST /api/auth/logout error:', error);
+    logger.error('POST /api/auth/logout error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

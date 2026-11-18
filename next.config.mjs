@@ -4,6 +4,14 @@ import { assertRuntimeEnv } from "./src/lib/env.js";
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactCompiler: true,
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "ipfs.io" },
+      { protocol: "https", hostname: "gateway.pinata.cloud" },
+      { protocol: "https", hostname: "*.mypinata.cloud" },
+      { protocol: "https", hostname: "www.gravatar.com" },
+    ],
+  },
   async headers() {
     return [
       {

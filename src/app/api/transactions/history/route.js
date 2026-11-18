@@ -7,6 +7,7 @@ import {
   buildPurchaseHistoryRecords,
   fetchHorizonTransactions,
 } from "@/lib/transactions/historyFeed";
+import { logger } from "@/lib/logger";
 
 async function getUserFromCookie(request) {
   const cookieHeader = request.headers.get("cookie") || "";
@@ -84,7 +85,7 @@ export async function GET(request) {
       records: combined,
     });
   } catch (error) {
-    console.error("Transaction history error:", error);
+    logger.error("Transaction history error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

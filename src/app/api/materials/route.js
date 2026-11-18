@@ -10,6 +10,7 @@ import { ObjectId } from "mongodb";
 import { buildMaterialHistoryEntry, EDITABLE_MATERIAL_FIELDS } from "@/lib/backend/schemaContracts";
 import { cacheGet, cacheSet, invalidateMarketplaceCache } from "@/lib/cache/redis";
 
+import { logger } from "@/lib/logger";
 export const runtime = "nodejs";
 
 function sanitizeMaterial(doc) {
@@ -65,7 +66,7 @@ export async function POST(request) {
             const dbUser = await db.collection("users").findOne({ _id: new ObjectId(user.sub) });
             userAddress = dbUser?.walletAddress || dbUser?.walletAddressLower || null;
           } catch (e) {
-            console.warn("User lookup failed while creating material:", e?.message || e);
+            logger.warn("User lookup failed while creating material:", e?.message || e);
           }
         }
 

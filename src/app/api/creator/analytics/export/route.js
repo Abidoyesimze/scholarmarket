@@ -3,6 +3,7 @@ import { getDb } from "@/lib/mongodb";
 import { getUserFromCookie } from "@/lib/api/auth";
 
 export const dynamic = "force-dynamic";
+import { logger } from "@/lib/logger";
 export const runtime = "nodejs";
 
 export async function GET(request) {
@@ -99,7 +100,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    console.error("[analytics/export] GET error:", error);
+    logger.error("[analytics/export] GET error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
