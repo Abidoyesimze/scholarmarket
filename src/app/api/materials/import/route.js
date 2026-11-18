@@ -7,6 +7,7 @@ import { getUserFromCookie } from "@/lib/api/auth";
 import { getDb } from "@/lib/mongodb";
 import { validateImportPayload, ImportValidationError } from "@/lib/backend/materialImport";
 
+import { logger } from "@/lib/logger";
 export const runtime = "nodejs";
 
 // POST /api/materials/import
@@ -31,7 +32,7 @@ export async function POST(request) {
             const dbUser = await (await getDb()).collection("users").findOne({ _id: new ObjectId(user.sub) });
             userAddress = dbUser?.walletAddress || dbUser?.walletAddressLower || null;
           } catch (e) {
-            console.warn("User lookup failed during import:", e?.message || e);
+            logger.warn("User lookup failed during import:", e?.message || e);
           }
         }
 

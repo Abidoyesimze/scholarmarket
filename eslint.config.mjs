@@ -22,6 +22,12 @@ const eslintConfig = defineConfig([
       "react-hooks/immutability": "off",
     },
   },
+  {
+    files: ["src/app/api/**/*.js", "src/lib/**/*.js"],
+    rules: {
+      "no-console": "error",
+    },
+  },
 ]);
 
 export default eslintConfig;

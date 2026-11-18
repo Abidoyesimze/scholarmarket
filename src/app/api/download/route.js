@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 /**
  * GET /api/download — Issue #63
  *
@@ -71,7 +72,7 @@ export async function GET(request) {
       material = await db.collection('materials').findOne({ _id: new ObjectId(materialId) });
     }
   } catch (err) {
-    console.error('[download] DB error fetching material:', err);
+    logger.error('[download] DB error fetching material:', err);
     return NextResponse.json({ error: 'Material lookup failed' }, { status: 503 });
   }
 
@@ -100,7 +101,7 @@ export async function GET(request) {
         hasAccess = entitlementResult.hasAccess;
         accessSource = entitlementResult.source;
       } catch (err) {
-        console.error('[download] entitlement check error:', err);
+        logger.error('[download] entitlement check error:', err);
         return NextResponse.json(
           { error: 'Entitlement verification failed' },
           { status: 503 }

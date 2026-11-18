@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { logger } from "@/lib/logger";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -88,7 +89,7 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, status: newStatus });
   } catch (error) {
-    console.error("[admin/verification] POST error:", error);
+    logger.error("[admin/verification] POST error:", error);
     return NextResponse.json(
       { error: error.message || "Internal Server Error" },
       { status: 500 }
@@ -116,7 +117,7 @@ export async function GET(request) {
 
     return NextResponse.json({ applications });
   } catch (error) {
-    console.error("[admin/verification] GET error:", error);
+    logger.error("[admin/verification] GET error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }

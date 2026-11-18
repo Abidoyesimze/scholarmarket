@@ -6,6 +6,8 @@ import { useUserMaterials, useUpdateMaterial } from "@/hooks/api/useMaterials";
 import { FaEdit, FaSave, FaTimes, FaSpinner, FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import ResourceStatusBadge from "@/components/materials/ResourceStatusBadge";
 import { EDITABLE_MATERIAL_FIELDS, IMMUTABLE_MATERIAL_FIELDS } from "@/lib/backend/schemaContracts";
+import Image from "next/image";
+import Image from "next/image";
 
 function EditModal({ material, isOpen, onClose }) {
   const updateMutation = useUpdateMaterial();
@@ -245,10 +247,11 @@ export default function MyMaterialsPage() {
             >
               <div className="w-full h-36 bg-gradient-to-br from-blue-50 to-purple-50 rounded-t-xl flex items-center justify-center overflow-hidden">
                 {material.thumbnailUrl ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
+                  <Image
                     src={material.thumbnailUrl}
                     alt={material.title}
+                    width={576}
+                    height={144}
                     className="w-full h-full object-cover"
                   />
                 ) : (

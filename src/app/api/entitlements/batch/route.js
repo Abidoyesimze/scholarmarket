@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { verifyEntitlement } from "@/lib/entitlement";
 import { validateAuth } from "@/lib/auth/session";
 
+import { logger } from "@/lib/logger";
 /** Maximum number of material IDs accepted per request — mirrors the
  *  on-chain `MAX_BATCH_ENTITLEMENTS` cap so callers never need a different
  *  limit for the DB-cache path vs a direct contract call. */
@@ -82,7 +83,7 @@ export async function POST(req) {
 
     return NextResponse.json({ results }, { status: 200 });
   } catch (error) {
-    console.error("Batch entitlement check error:", error);
+    logger.error("Batch entitlement check error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

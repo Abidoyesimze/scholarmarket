@@ -6,12 +6,23 @@ import { applyTaxToCheckout } from '@/lib/checkout/taxEstimator';
 import { getDb } from '@/lib/mongodb';
 import { findMaterial, verifyDiscount } from '@/lib/checkout/discountVerifier';
 import { checkBuyerTrustline } from '@/lib/stellar/horizonClient';
+import { withApiHardening } from "@/lib/api/hardening";
+import { API_RATE_LIMITS } from "@/lib/api/rateLimitConfig";
+import { withRequestLogger } from "@/lib/logger";
 
 /**
  * POST /api/checkout/initiate
  * Initiates a checkout with tax estimation based on buyer's geolocation
  */
-export async function POST(req) {
+export const POST = withRequestLogger(async function POST(req, context, requestLogger) {
+  return withApiHardening(req, {
+    route: "/api/checkout/initiate",
+    rateLimit: API_RATE_LIMITS["/api/checkout/initiate"],
+    key: async (request) => {
+      const user = await getUserFromCookie(request);
+      return user?.walletAddress || user?.address || user?.id || null;
+    },
+  }, async () => {
   try {
     const user = await getUserFromCookie(req);
     if (!user) {
@@ -117,16 +128,21 @@ export async function POST(req) {
       },
     }, { status: 201 });
   } catch (err) {
-    console.error('POST /api/checkout/initiate error:', err);
+    requestLogger.error({ err }, "POST /api/checkout/initiate error");
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
-}
+  });
+});
 
 /**
  * GET /api/checkout/initiate
  * Get tax estimation without creating a checkout intent
  */
-export async function GET(req) {
+export const GET = withRequestLogger(async function GET(req, context, requestLogger) {
+  return withApiHardening(req, {
+    route: "/api/checkout/initiate",
+    rateLimit: API_RATE_LIMITS["/api/checkout/initiate"],
+  }, async () => {
   try {
     const { searchParams } = new URL(req.url);
     const amount = parseFloat(searchParams.get('amount'));
@@ -150,7 +166,8 @@ export async function GET(req) {
       estimation: checkoutWithTax,
     });
   } catch (err) {
-    console.error('GET /api/checkout/initiate error:', err);
+    requestLogger.error({ err }, "GET /api/checkout/initiate error");
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
-}
+  });
+});

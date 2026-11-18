@@ -5,6 +5,7 @@ import { approveRefundOnChain } from '@/lib/stellar/refundService';
 import { auditLog } from '@/lib/api/audit';
 import { ObjectId } from 'mongodb';
 
+import { logger } from "@/lib/logger";
 export async function POST(request) {
   try {
     const user = await getUserFromCookie(request);
@@ -71,7 +72,7 @@ export async function POST(request) {
     }
 
   } catch (error) {
-    console.error('POST /api/admin/refunds/approve error:', error);
+    logger.error('POST /api/admin/refunds/approve error:', error);
     return NextResponse.json({ error: error.message || 'Server error' }, { status: 500 });
   }
 }
