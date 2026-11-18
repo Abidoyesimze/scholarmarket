@@ -2,22 +2,12 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
-import { verifyDashboardToken } from "@/lib/auth/session";
+import { getUserFromCookie } from "@/lib/api/auth";
 import {
   buildPurchaseHistoryRecords,
   fetchHorizonTransactions,
 } from "@/lib/transactions/historyFeed";
 import { logger } from "@/lib/logger";
-
-async function getUserFromCookie(request) {
-  const cookieHeader = request.headers.get("cookie") || "";
-  const cookieMatch = cookieHeader.match(/auth_token=([^;]+)/);
-  const token = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
-  if (!token) return null;
-  const verification = await verifyDashboardToken(token, process.env.JWT_SECRET);
-  if (!verification.valid) return null;
-  return verification.payload;
-}
 
 function parsePage(value) {
   const page = Number(value);

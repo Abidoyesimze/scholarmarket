@@ -1,11 +1,28 @@
-import { verifyDashboardToken } from "@/lib/auth/session";
+import { verifyDashboardToken } from "../auth/session.js";
 import { ObjectId } from "mongodb";
-import { getDb } from "@/lib/mongodb";
+import { getDb } from "../mongodb.js";
+
+export function getAuthToken(request) {
+  const cookieHeader = request.headers.get("cookie") || "";
+  const cookieMatch = cookieHeader.match(/(?:^|;\s*)auth_token=([^;]+)/);
+  if (cookieMatch) {
+    try {
+      return decodeURIComponent(cookieMatch[1]);
+    } catch {
+      return null;
+    }
+  }
+
+  const authorization = request.headers.get("authorization") || "";
+  if (authorization.toLowerCase().startsWith("bearer ")) {
+    return authorization.slice(7).trim() || null;
+  }
+
+  return null;
+}
 
 export async function getUserFromCookie(request) {
-  const cookieHeader = request.headers.get("cookie") || "";
-  const cookieMatch = cookieHeader.match(/auth_token=([^;]+)/);
-  const token = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
+  const token = getAuthToken(request);
   if (!token) return null;
   const verification = await verifyDashboardToken(token, process.env.JWT_SECRET);
   if (!verification.valid) {

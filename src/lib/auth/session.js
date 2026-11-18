@@ -60,7 +60,10 @@ export async function verifyDashboardToken(token, secret) {
     }
 
     const now = Math.floor(Date.now() / 1000);
-    if (typeof payload.exp === "number" && payload.exp <= now) {
+    if (typeof payload.exp !== "number") {
+      return { valid: false, reason: "malformed" };
+    }
+    if (payload.exp <= now) {
       return { valid: false, reason: "expired" };
     }
 
