@@ -20,6 +20,10 @@ const serverSelectionTimeoutMS = parseInt(
   process.env.MONGODB_TIMEOUT_MS || "5000",
   10,
 ); // Fail fast
+const socketTimeoutMS = parseInt(
+  process.env.MONGODB_SOCKET_TIMEOUT_MS || "30000",
+  10,
+); // Timeout for socket operations
 // How often the driver pings each server to confirm connectivity.
 const heartbeatFrequencyMS = parseInt(
   process.env.MONGODB_HEARTBEAT_MS || "10000",
@@ -42,6 +46,7 @@ function getClientPromise() {
         maxPoolSize,
         minPoolSize,
         serverSelectionTimeoutMS,
+        socketTimeoutMS,
         heartbeatFrequencyMS,
         maxIdleTimeMS: 30000,
       });
