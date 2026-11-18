@@ -7,6 +7,7 @@ import { FaDownload, FaExternalLinkAlt, FaShoppingBag, FaSpinner, FaCheckCircle 
 import { MdOutlineSchool } from "react-icons/md";
 import { getExplorerTxUrl } from "@/lib/config/chain";
 import Image from "next/image";
+import EmptyState from "@/components/common/EmptyState";
 
 function formatDate(dateStr) {
   if (!dateStr) return "—";
@@ -49,28 +50,6 @@ function SkeletonCard() {
         <div className="h-8 bg-gray-200 rounded-lg flex-1" />
         <div className="h-8 bg-gray-200 rounded-lg w-10" />
       </div>
-    </div>
-  );
-}
-
-// ─── Empty state ──────────────────────────────────────────────────────────────
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center mb-5">
-        <MdOutlineSchool className="text-blue-400 text-4xl" />
-      </div>
-      <h2 className="text-xl font-semibold text-gray-800 mb-2">No purchases yet</h2>
-      <p className="text-sm text-gray-500 max-w-xs mb-6">
-        Head over to the marketplace to discover and purchase educational materials.
-      </p>
-      <a
-        href="/dashboard/market"
-        className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 transition-colors"
-      >
-        <FaShoppingBag size={14} />
-        Browse Marketplace
-      </a>
     </div>
   );
 }
@@ -307,18 +286,34 @@ export default function PurchasesPage() {
       )}
 
       {!loading && error && (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <p className="text-red-500 text-sm mb-4">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="text-sm text-blue-600 underline"
-          >
-            Try again
-          </button>
-        </div>
+        <EmptyState
+          variant="error"
+          title="Failed to load purchases"
+          description={error}
+          primaryAction={{
+            label: "Try again",
+            onClick: () => window.location.reload(),
+          }}
+          secondaryAction={{
+            label: "Browse Marketplace",
+            href: "/marketplace",
+            icon: <FaShoppingBag size={14} />,
+          }}
+        />
       )}
 
-      {!loading && !error && items.length === 0 && <EmptyState />}
+      {!loading && !error && items.length === 0 && (
+        <EmptyState
+          icon={<MdOutlineSchool className="text-blue-500 text-3xl" />}
+          title="No purchases yet"
+          description="Head over to the marketplace to discover and purchase educational materials."
+          primaryAction={{
+            label: "Browse Marketplace",
+            href: "/marketplace",
+            icon: <FaShoppingBag size={14} />,
+          }}
+        />
+      )}
 
       {!loading && !error && items.length > 0 && (
         <>

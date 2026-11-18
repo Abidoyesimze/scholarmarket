@@ -82,7 +82,12 @@ export async function POST(request) {
         const aggregation = await db
           .collection("reviews")
           .aggregate([
-            { $match: { materialId } },
+            {
+              $match: {
+                materialId,
+                status: { $nin: ["hidden_pending_review", "permanently_removed"] },
+              },
+            },
             {
               $group: {
                 _id: "$materialId",

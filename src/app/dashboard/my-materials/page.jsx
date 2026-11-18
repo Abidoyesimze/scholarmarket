@@ -7,7 +7,7 @@ import { FaEdit, FaSave, FaTimes, FaSpinner, FaCheckCircle, FaExclamationTriangl
 import ResourceStatusBadge from "@/components/materials/ResourceStatusBadge";
 import { EDITABLE_MATERIAL_FIELDS, IMMUTABLE_MATERIAL_FIELDS } from "@/lib/backend/schemaContracts";
 import Image from "next/image";
-import Image from "next/image";
+import EmptyState from "@/components/common/EmptyState";
 
 function EditModal({ material, isOpen, onClose }) {
   const updateMutation = useUpdateMaterial();
@@ -184,11 +184,14 @@ export default function MyMaterialsPage() {
 
   if (!address) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <p className="text-gray-600 text-sm">
-          Connect your wallet to view your uploaded materials.
-        </p>
-      </div>
+      <EmptyState
+        title="Connect your wallet"
+        description="Connect your wallet to view and manage your uploaded materials."
+        primaryAction={{
+          label: "Browse Marketplace",
+          href: "/marketplace",
+        }}
+      />
     );
   }
 
@@ -215,27 +218,36 @@ export default function MyMaterialsPage() {
       )}
 
       {queryError && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-600">{queryError.message}</p>
-        </div>
+        <EmptyState
+          variant="error"
+          title="Failed to load materials"
+          description={queryError.message}
+          primaryAction={{
+            label: "Try again",
+            onClick: () => window.location.reload(),
+          }}
+          secondaryAction={{
+            label: "Browse Marketplace",
+            href: "/marketplace",
+          }}
+        />
       )}
 
       {!isLoading && !queryError && materials?.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
-            <FaEdit className="text-blue-400 text-2xl" />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">No materials yet</h2>
-          <p className="text-sm text-gray-500 max-w-xs mb-6">
-            Upload your first educational material to start sharing with the community.
-          </p>
-          <a
-            href="/dashboard/upload"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 transition-colors"
-          >
-            Upload Material
-          </a>
-        </div>
+        <EmptyState
+          icon={<FaEdit className="text-blue-500 text-2xl" />}
+          title="No materials yet"
+          description="Upload your first educational material to start sharing with the community."
+          primaryAction={{
+            label: "Upload Material",
+            href: "/dashboard/upload",
+            icon: <FaEdit size={14} />,
+          }}
+          secondaryAction={{
+            label: "Browse Marketplace",
+            href: "/marketplace",
+          }}
+        />
       )}
 
       {materials?.length > 0 && (
