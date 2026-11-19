@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FaCloudUploadAlt } from "react-icons/fa";
 import Cropper from "react-easy-crop";
 import { useWallet } from "@/hooks/useWallet";
@@ -52,6 +52,11 @@ export default function UploadForm() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
+
+  useEffect(() => {
+    const firstInvalid = Object.keys(fieldErrors)[0];
+    if (firstInvalid) document.getElementById(firstInvalid)?.focus();
+  }, [fieldErrors]);
   const [payoutSplits, setPayoutSplits] = useState(null);
   const [payoutSplitsValid, setPayoutSplitsValid] = useState(true);
 
@@ -295,6 +300,7 @@ export default function UploadForm() {
       <div className="mb-5">
         <label className="block text-sm font-medium mb-2">Document Title</label>
         <input
+          id="title"
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -303,6 +309,7 @@ export default function UploadForm() {
           maxLength={160}
           required
           aria-describedby={fieldErrors.title ? "title-error" : undefined}
+          aria-invalid={fieldErrors.title ? "true" : "false"}
         />
         {fieldErrors.title && (
           <p id="title-error" className="text-red-600 text-xs mt-1">
@@ -316,6 +323,7 @@ export default function UploadForm() {
           Short Description
         </label>
         <textarea
+          id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Comprehensive lecture notes covering key development theories and examples."
@@ -325,6 +333,7 @@ export default function UploadForm() {
           aria-describedby={
             fieldErrors.description ? "description-error" : undefined
           }
+          aria-invalid={fieldErrors.description ? "true" : "false"}
         />
         {fieldErrors.description && (
           <p id="description-error" className="text-red-600 text-xs mt-1">
@@ -430,6 +439,7 @@ export default function UploadForm() {
           className={`border-2 border-dashed rounded-lg p-6 text-center transition ${fieldErrors.file ? "border-red-500 hover:border-red-600 bg-red-50" : "border-gray-300 hover:border-blue-400"}`}
         >
           <input
+            id="price"
             type="file"
             id="file-upload"
             className="hidden"
@@ -481,6 +491,7 @@ export default function UploadForm() {
             step="0.01"
             className={`w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 ${fieldErrors.price ? "border-red-500" : "border-gray-300"}`}
             aria-describedby={fieldErrors.price ? "price-error" : undefined}
+            aria-invalid={fieldErrors.price ? "true" : "false"}
           />
           {fieldErrors.price && (
             <p id="price-error" className="text-red-600 text-xs mt-1">

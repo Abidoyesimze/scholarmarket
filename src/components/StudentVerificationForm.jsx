@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FaCloudUploadAlt, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
 import Image from "next/image";
 
@@ -18,6 +18,11 @@ export default function StudentVerificationForm({ onSuccess, userAddress }) {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState(null);
+
+  useEffect(() => {
+    const firstInvalid = Object.keys(errors)[0];
+    if (firstInvalid) document.getElementById(firstInvalid)?.focus();
+  }, [errors]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -184,10 +189,12 @@ export default function StudentVerificationForm({ onSuccess, userAddress }) {
             className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               errors.fullName ? "border-red-500" : "border-gray-300"
             }`}
+            aria-invalid={errors.fullName ? "true" : "false"}
+            aria-describedby={errors.fullName ? "fullName-error" : undefined}
             placeholder="John Doe"
           />
           {errors.fullName && (
-            <p className="text-red-600 text-xs mt-1">{errors.fullName}</p>
+            <p id="fullName-error" role="alert" aria-live="polite" className="text-red-600 text-xs mt-1">{errors.fullName}</p>
           )}
         </div>
 
@@ -208,6 +215,8 @@ export default function StudentVerificationForm({ onSuccess, userAddress }) {
             className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               errors.email ? "border-red-500" : "border-gray-300"
             }`}
+            aria-invalid={errors.email ? "true" : "false"}
+            aria-describedby={errors.email ? "email-error" : undefined}
             placeholder="student@university.edu"
           />
           {errors.email && (
@@ -233,10 +242,12 @@ export default function StudentVerificationForm({ onSuccess, userAddress }) {
           className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
             errors.institution ? "border-red-500" : "border-gray-300"
           }`}
+          aria-invalid={errors.institution ? "true" : "false"}
+          aria-describedby={errors.institution ? "institution-error" : undefined}
           placeholder="University of Example"
         />
         {errors.institution && (
-          <p className="text-red-600 text-xs mt-1">{errors.institution}</p>
+          <p id="institution-error" role="alert" aria-live="polite" className="text-red-600 text-xs mt-1">{errors.institution}</p>
         )}
       </div>
 
@@ -258,10 +269,12 @@ export default function StudentVerificationForm({ onSuccess, userAddress }) {
             className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               errors.studentId ? "border-red-500" : "border-gray-300"
             }`}
+            aria-invalid={errors.studentId ? "true" : "false"}
+            aria-describedby={errors.studentId ? "studentId-error" : undefined}
             placeholder="S123456789"
           />
           {errors.studentId && (
-            <p className="text-red-600 text-xs mt-1">{errors.studentId}</p>
+            <p id="studentId-error" role="alert" aria-live="polite" className="text-red-600 text-xs mt-1">{errors.studentId}</p>
           )}
         </div>
 
@@ -283,9 +296,11 @@ export default function StudentVerificationForm({ onSuccess, userAddress }) {
             className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               errors.expectedGraduation ? "border-red-500" : "border-gray-300"
             }`}
+            aria-invalid={errors.expectedGraduation ? "true" : "false"}
+            aria-describedby={errors.expectedGraduation ? "expectedGraduation-error" : undefined}
           />
           {errors.expectedGraduation && (
-            <p className="text-red-600 text-xs mt-1">
+            <p id="expectedGraduation-error" role="alert" aria-live="polite" className="text-red-600 text-xs mt-1">
               {errors.expectedGraduation}
             </p>
           )}
@@ -317,6 +332,8 @@ export default function StudentVerificationForm({ onSuccess, userAddress }) {
             onChange={handleFileChange}
             accept=".jpg,.jpeg,.png,.pdf"
             disabled={isSubmitting}
+            aria-invalid={errors.document ? "true" : "false"}
+            aria-describedby={errors.document ? "document-error" : undefined}
           />
           <label htmlFor="document-upload" className="cursor-pointer">
             {documentFile ? (
@@ -364,7 +381,7 @@ export default function StudentVerificationForm({ onSuccess, userAddress }) {
           </label>
         </div>
         {errors.document && (
-          <p className="text-red-600 text-xs mt-1">{errors.document}</p>
+          <p id="document-error" role="alert" aria-live="polite" className="text-red-600 text-xs mt-1">{errors.document}</p>
         )}
         {uploadError && (
           <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
