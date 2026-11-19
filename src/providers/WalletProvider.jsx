@@ -29,6 +29,16 @@ export const WalletContext = createContext(null);
 const SESSION_STORAGE_KEY = 'scholarmarket.wallet.session.v1';
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24;
 
+// Playwright E2E runs inject `window.__SCHOLARMARKET_E2E_WALLET__ = { address }`
+// so flows can run headless without a wallet extension or live chain. The
+// hook is only honoured when the app is built with NEXT_PUBLIC_E2E_WALLET_MOCK=true.
+function getE2EMockAddress() {
+  if (process.env.NEXT_PUBLIC_E2E_WALLET_MOCK !== 'true') return null;
+  if (typeof window === 'undefined') return null;
+  const address = window.__SCHOLARMARKET_E2E_WALLET__?.address;
+  return typeof address === 'string' && address ? address : null;
+}
+
 export function WalletProvider({ children }) {
   const [state, setState] = useState({ status: WalletStatus.Initializing });
 
@@ -138,14 +148,15 @@ export function WalletProvider({ children }) {
 
     (async () => {
       try {
-        ensureKitInitialized();
-
-        let address;
-        try {
-          const result = await StellarWalletsKit.getAddress();
-          address = result.address;
-        } catch {
-          address = undefined;
+        let address = getE2EMockAddress();
+        if (!address) {
+          ensureKitInitialized();
+          try {
+            const result = await StellarWalletsKit.getAddress();
+            address = result.address;
+          } catch {
+            address = undefined;
+          }
         }
 
         if (cancelled) return;
@@ -189,6 +200,10 @@ export function WalletProvider({ children }) {
   }, [clearPersistedSession, loadPersistedSession, persistSession]);
 
   useEffect(() => {
+    // The injected E2E wallet never goes through the kit, so its events
+    // (e.g. a "no address" STATE_UPDATED) must not override it.
+    if (getE2EMockAddress()) return undefined;
+
     const unsubSelected = StellarWalletsKit.on(
       KitEventType.WALLET_SELECTED,
       (event) => {
@@ -256,7 +271,9 @@ export function WalletProvider({ children }) {
 
     setState({ status: WalletStatus.Connecting });
     try {
-      const { address } = await StellarWalletsKit.authModal();
+      const { address } = getE2EMockAddress()
+        ? { address: getE2EMockAddress() }
+        : await StellarWalletsKit.authModal();
 
       if (address) {
         const session = {
@@ -312,6 +329,7 @@ export function WalletProvider({ children }) {
   const signTransaction = useCallback(
     async (xdr, opts) => {
       const address = opts?.address ?? assertConnected();
+      if (getE2EMockAddress()) return xdr;
       const { signedTxXdr } = await StellarWalletsKit.signTransaction(xdr, {
         address,
         networkPassphrase: NETWORK_PASSPHRASE,

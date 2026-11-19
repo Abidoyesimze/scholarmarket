@@ -2,11 +2,14 @@
 
 // Purchases library page: shows purchased materials for the authenticated buyer, with empty/loading/error/disconnected states.
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { FaDownload, FaExternalLinkAlt, FaShoppingBag, FaSpinner, FaCheckCircle } from "react-icons/fa";
 import { MdOutlineSchool } from "react-icons/md";
 import { getExplorerTxUrl } from "@/lib/config/chain";
 import Image from "next/image";
+import EmptyState from "@/components/common/EmptyState";
+import { usePurchasedMaterials } from "@/hooks/api/usePurchases";
+import { QueryStateProvider } from "@/components/common/QueryStateProvider";
 
 function formatDate(dateStr) {
   if (!dateStr) return "—";
@@ -49,28 +52,6 @@ function SkeletonCard() {
         <div className="h-8 bg-gray-200 rounded-lg flex-1" />
         <div className="h-8 bg-gray-200 rounded-lg w-10" />
       </div>
-    </div>
-  );
-}
-
-// ─── Empty state ──────────────────────────────────────────────────────────────
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center mb-5">
-        <MdOutlineSchool className="text-blue-400 text-4xl" />
-      </div>
-      <h2 className="text-xl font-semibold text-gray-800 mb-2">No purchases yet</h2>
-      <p className="text-sm text-gray-500 max-w-xs mb-6">
-        Head over to the marketplace to discover and purchase educational materials.
-      </p>
-      <a
-        href="/dashboard/market"
-        className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 transition-colors"
-      >
-        <FaShoppingBag size={14} />
-        Browse Marketplace
-      </a>
     </div>
   );
 }
@@ -172,7 +153,10 @@ function PurchasedMaterialCard({ item }) {
   const price = material?.price != null ? `${material.price} XLM` : "—";
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow flex flex-col">
+    <div
+      data-testid="purchased-material"
+      className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow flex flex-col"
+    >
       {/* Thumbnail / placeholder */}
       <div className="w-full h-36 bg-linear-to-br from-blue-50 to-purple-50 rounded-t-xl flex items-center justify-center overflow-hidden">
         {material?.thumbnailUrl ? (
@@ -265,29 +249,7 @@ function PurchasedMaterialCard({ item }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function PurchasesPage() {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/purchased-materials");
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error || "Failed to load purchases");
-        }
-        const data = await res.json();
-        if (!cancelled) setItems(data);
-      } catch (err) {
-        if (!cancelled) setError(err.message);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  const purchasesQuery = usePurchasedMaterials();
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -307,31 +269,74 @@ export default function PurchasesPage() {
       )}
 
       {!loading && error && (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <p className="text-red-500 text-sm mb-4">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="text-sm text-blue-600 underline"
-          >
-            Try again
-          </button>
-        </div>
+        <EmptyState
+          variant="error"
+          title="Failed to load purchases"
+          description={error}
+          primaryAction={{
+            label: "Try again",
+            onClick: () => window.location.reload(),
+          }}
+          secondaryAction={{
+            label: "Browse Marketplace",
+            href: "/marketplace",
+            icon: <FaShoppingBag size={14} />,
+          }}
+        />
       )}
 
-      {!loading && !error && items.length === 0 && <EmptyState />}
+      {!loading && !error && items.length === 0 && (
+        <EmptyState
+          icon={<MdOutlineSchool className="text-blue-500 text-3xl" />}
+          title="No purchases yet"
+          description="Head over to the marketplace to discover and purchase educational materials."
+          primaryAction={{
+            label: "Browse Marketplace",
+            href: "/marketplace",
+            icon: <FaShoppingBag size={14} />,
+          }}
+        />
+      )}
 
       {!loading && !error && items.length > 0 && (
         <>
           <p className="text-xs text-gray-400 mb-4">
             {items.length} {items.length === 1 ? "item" : "items"} purchased
           </p>
+      <QueryStateProvider
+        query={purchasesQuery}
+        loadingComponent={
           <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {items.map((item) => (
-              <PurchasedMaterialCard key={item.purchaseId} item={item} />
-            ))}
+            {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
-        </>
-      )}
+        }
+        errorComponent={
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <p className="text-red-500 text-sm mb-4">
+              {purchasesQuery.error?.message || "Failed to load purchases"}
+            </p>
+            <button
+              onClick={() => purchasesQuery.refetch()}
+              className="text-sm text-blue-600 underline"
+            >
+              Try again
+            </button>
+          </div>
+        }
+        emptyComponent={<EmptyState />}
+        renderData={(items) => (
+          <>
+            <p className="text-xs text-gray-400 mb-4">
+              {items.length} {items.length === 1 ? "item" : "items"} purchased
+            </p>
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {items.map((item) => (
+                <PurchasedMaterialCard key={item.purchaseId} item={item} />
+              ))}
+            </div>
+          </>
+        )}
+      />
     </div>
   );
 }

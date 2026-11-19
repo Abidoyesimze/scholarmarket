@@ -147,6 +147,7 @@ export default function CheckoutReceiptModal({
           `}</style>
           <motion.div
             className="modal-backdrop fixed inset-0 z-[80] bg-slate-950/70 backdrop-blur-md no-print"
+            className="fixed inset-0 z-[110] bg-slate-950/70 backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -155,6 +156,7 @@ export default function CheckoutReceiptModal({
 
           <motion.div
             className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto p-4 sm:p-6 no-print"
+            className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto p-4 sm:p-6"
             initial={{ opacity: 0, y: 24, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.97 }}

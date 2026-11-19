@@ -6,7 +6,8 @@
  */
 
 import { getDb } from '@/lib/mongodb';
-import { sendPurchaseReceiptEmail } from '@/lib/email';
+import { logger } from '@/lib/logger';
+import { sendPurchaseReceiptEmail, sendRefundNotificationEmail } from '@/lib/email';
 import { sendWebhookWithRetry } from '@/lib/webhooks/sender';
 import {
   leaseNextIntent,
@@ -20,7 +21,37 @@ const POLL_INTERVAL_MS = parseInt(process.env.SIDE_EFFECT_POLL_MS || '5000', 10)
 const LEASE_RENEW_INTERVAL_MS = parseInt(process.env.SIDE_EFFECT_LEASE_RENEW_MS || '60_000', 10);
 const OUTBOX_COLLECTION = 'side_effect_outbox';
 
+async function processRefundEmailIntent(intent) {
+  const refund = intent.intent.payload;
+  const db = await getDb();
+  const buyerAddress = String(refund.buyerAddress || '');
+
+  const user = buyerAddress
+    ? await db.collection('users').findOne({
+        $or: [
+          { walletAddress: buyerAddress },
+          { walletAddressLower: buyerAddress.toLowerCase() },
+        ],
+      })
+    : null;
+  const email = refund.email || user?.email;
+  if (!email) {
+    // No address on file — nothing to deliver, so don't retry forever.
+    logger.warn({ refundEventId: refund.refundEventId }, '[SideEffectWorker] No email on file for refund; skipping');
+    return;
+  }
+
+  const material = refund.materialId
+    ? await db.collection('materials').findOne({ materialId: refund.materialId })
+    : null;
+  await sendRefundNotificationEmail(email, refund, material);
+}
+
 async function processEmailIntent(intent) {
+  if (intent.intent.channel === 'purchase_refund') {
+    await processRefundEmailIntent(intent);
+    return;
+  }
   const { email, purchase, material } = intent.intent.payload;
   await sendPurchaseReceiptEmail(email, purchase, material);
 }

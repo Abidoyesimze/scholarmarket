@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import BulkAddressInput from './BulkAddressInput';
 import GasEstimator from './GasEstimator';
 import './checkout.css';
+import useConfirm from '@/hooks/useConfirm';
+import { useToast } from '@/hooks/useToast';
 
 /**
  * SponsorCheckout – page component for sponsoring students.
@@ -15,6 +17,8 @@ export default function SponsorCheckout() {
   const [addresses, setAddresses] = useState([]);
   const [valid, setValid] = useState(false);
   const [gasInfo, setGasInfo] = useState({ totalTx: 0, gasCost: 0 });
+  const { confirm, dialog } = useConfirm();
+  const toast = useToast();
 
   const handleAddressesChange = (list) => {
     setAddresses(list);
@@ -26,15 +30,25 @@ export default function SponsorCheckout() {
     setGasInfo({ totalTx, gasCost });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!valid) return;
-    // In a real app, post to backend. Here we just alert.
-    alert(`Sponsoring ${addresses.length} students. Estimated gas: ${gasInfo.gasCost} XLM`);
+    const confirmed = await confirm({
+      title: 'Confirm sponsorship',
+      description: `Sponsor ${addresses.length} students. Estimated gas: ${gasInfo.gasCost} XLM`,
+      confirmLabel: 'Sponsor',
+    });
+    if (!confirmed) return;
+    toast.show({
+      title: 'Sponsorship submitted',
+      message: `Sponsoring ${addresses.length} students`,
+      type: 'success',
+    });
   };
 
   return (
     <section className="sponsor-checkout">
+      {dialog}
       <h2 className="title">Sponsor a Student – Scholarship Checkout</h2>
       <form onSubmit={handleSubmit} className="checkout-form">
         <BulkAddressInput onChange={handleAddressesChange} />

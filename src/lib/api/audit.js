@@ -9,6 +9,7 @@ const SAFE_FIELDS = new Set([
   "materialId",
   "cursor",
   "eventId",
+  "target",
 ]);
 
 export function auditLog(fields) {
@@ -21,4 +22,16 @@ export function auditLog(fields) {
   }
 
   console.info(JSON.stringify(entry));
+
+  void import("../mongodb.js")
+    .then(async ({ getDb }) => {
+      const db = await getDb();
+      await db.collection("audit_logs").insertOne({
+        ...entry,
+        action: entry.event || entry.action || "unknown",
+        target: entry.target || entry.materialId || entry.walletAddress || null,
+        createdAt: new Date(entry.timestamp),
+      });
+    })
+    .catch(() => {});
 }

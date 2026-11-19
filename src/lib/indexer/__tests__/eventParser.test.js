@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { xdr, nativeToScVal, Address, Keypair } from "@stellar/stellar-sdk";
 import { parseContractEvent } from "../eventParser.js";
+import { purchaseRefundedRawEvent } from "./fixtures/refundEvents.js";
 
 function toBase64(scVal) {
   return scVal.toXDR("base64");
@@ -109,6 +110,49 @@ describe("parseContractEvent", () => {
       ledger: 123457,
       transactionHash: "beef0000",
     });
+  });
+
+  it("decodes a purchase.refunded event", () => {
+    const buyer = Keypair.random().publicKey();
+    const asset = Keypair.random().publicKey();
+    const materialId = Buffer.alloc(32, 4);
+
+    const rawEvent = purchaseRefundedRawEvent({
+      id: "0000000123456789-0000000005",
+      purchaseId: 42,
+      materialId,
+      buyer,
+      asset,
+      refundAmount: 4_950_000,
+    });
+
+    expect(parseContractEvent(rawEvent)).toMatchObject({
+      type: "purchase.refunded",
+      purchaseId: "42",
+      materialId: materialId.toString("hex"),
+      buyerAddress: buyer,
+      asset,
+      refundAmount: "4950000",
+      entitlementRevoked: true,
+      id: rawEvent.id,
+      ledger: 200,
+      transactionHash: rawEvent.txHash,
+      contractId: rawEvent.contractId,
+    });
+  });
+
+  it("reports entitlementRevoked=false when the contract did not revoke", () => {
+    const rawEvent = purchaseRefundedRawEvent({
+      id: "0000000123456789-0000000006",
+      purchaseId: 43,
+      materialId: Buffer.alloc(32, 6),
+      buyer: Keypair.random().publicKey(),
+      asset: Keypair.random().publicKey(),
+      refundAmount: 1,
+      entitlementRevoked: false,
+    });
+
+    expect(parseContractEvent(rawEvent).entitlementRevoked).toBe(false);
   });
 
   it("returns null for an unrecognized topic instead of throwing", () => {

@@ -15,6 +15,20 @@ export function usePurchaseHistory() {
 }
 
 /**
+ * Fetches the authenticated buyer's purchased-materials library (purchase
+ * records merged with material metadata) for the Purchases dashboard tab.
+ *
+ * @returns {object} A react-query result containing an array of purchased materials.
+ */
+export function usePurchasedMaterials() {
+  return useQuery({
+    queryKey: queryKeys.purchases.library(),
+    queryFn: () => purchaseService.getPurchasedMaterials(),
+    staleTime: 60 * 1000,
+  });
+}
+
+/**
  * Checks whether a specific address has purchased entitlement to a given material.
  *
  * @param {string} materialId - The ID of the material to check.

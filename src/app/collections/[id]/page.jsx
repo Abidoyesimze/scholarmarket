@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft, FiBox } from "react-icons/fi";
+import EmptyState from "@/components/common/EmptyState";
 
 export default function CollectionDetailPage() {
   const params = useParams();
@@ -46,11 +47,20 @@ export default function CollectionDetailPage() {
 
   if (!collection) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
-        <h2 className="text-2xl font-bold mb-4">Collection not found</h2>
-        <Link href="/collections" className="text-blue-500 hover:underline">
-          &larr; Back to collections
-        </Link>
+      <div className="container mx-auto px-4 py-16">
+        <EmptyState
+          variant="error"
+          title="Collection not found"
+          description="The collection you are looking for does not exist or has been removed."
+          primaryAction={{
+            label: "Back to collections",
+            href: "/collections",
+          }}
+          secondaryAction={{
+            label: "Browse marketplace",
+            href: "/marketplace",
+          }}
+        />
       </div>
     );
   }
@@ -75,9 +85,20 @@ export default function CollectionDetailPage() {
         </h2>
 
         {!collection.materials || collection.materials.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
-            <p className="text-gray-500">No resources have been added to this collection yet.</p>
-          </div>
+          <EmptyState
+            headingLevel="h3"
+            icon={<FiBox className="text-3xl text-blue-500" />}
+            title="No resources yet"
+            description="No resources have been added to this collection yet."
+            primaryAction={{
+              label: "Browse marketplace",
+              href: "/marketplace",
+            }}
+            secondaryAction={{
+              label: "Back to collections",
+              href: "/collections",
+            }}
+          />
         ) : (
           <div className="space-y-4">
             {collection.materials.map(material => (

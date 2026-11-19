@@ -66,3 +66,154 @@ describe("Proxy convention migration (#114) — auth logic", () => {
     assert.equal(isProtectedDashboardPath("/"), false);
   });
 });
+
+describe("CSRF Protection & Auth Cookie Audit (Issue #2)", () => {
+  function makeMockRequest(url, {
+    method = "GET",
+    headers = {},
+    cookies = {},
+  } = {}) {
+    const parsedUrl = new URL(url);
+    const reqHeaders = new Headers(headers);
+
+    const cookiePairs = Object.entries(cookies).map(
+      ([k, v]) => `${k}=${encodeURIComponent(v)}`
+    );
+    if (cookiePairs.length > 0) {
+      reqHeaders.set("cookie", cookiePairs.join("; "));
+    }
+
+    return {
+      url,
+      method,
+      nextUrl: {
+        pathname: parsedUrl.pathname,
+        origin: parsedUrl.origin,
+        host: parsedUrl.host,
+      },
+      headers: reqHeaders,
+      cookies: {
+        get: (name) => (cookies[name] !== undefined ? { value: cookies[name] } : undefined),
+      },
+    };
+  }
+
+  test("rejects cross-origin form POST to a mutating route with 403", async () => {
+    const { proxy } = await import("../../src/proxy.js");
+
+    const req = makeMockRequest("http://localhost:3000/api/admin/users/suspend", {
+      method: "POST",
+      headers: {
+        origin: "https://malicious-attacker.com",
+        "content-type": "application/x-www-form-urlencoded",
+        host: "localhost:3000",
+      },
+    });
+
+    const res = await proxy(req);
+    assert.ok(res, "Should return a response");
+    assert.equal(res.status, 403);
+    const body = await res.json();
+    assert.match(body.error, /Forbidden: Cross-site request rejected/i);
+  });
+
+  test("rejects mutating request with Sec-Fetch-Site: cross-site with 403", async () => {
+    const { proxy } = await import("../../src/proxy.js");
+
+    const req = makeMockRequest("http://localhost:3000/api/checkout/initiate", {
+      method: "POST",
+      headers: {
+        "sec-fetch-site": "cross-site",
+        host: "localhost:3000",
+      },
+    });
+
+    const res = await proxy(req);
+    assert.ok(res);
+    assert.equal(res.status, 403);
+  });
+
+  test("allows same-origin mutating requests", async () => {
+    const { proxy } = await import("../../src/proxy.js");
+
+    const req = makeMockRequest("http://localhost:3000/api/market-materials", {
+      method: "POST",
+      headers: {
+        origin: "http://localhost:3000",
+        "sec-fetch-site": "same-origin",
+        host: "localhost:3000",
+      },
+    });
+
+    const res = await proxy(req);
+    // When allowed and not rate-limited, NextResponse.next() is returned (status 200 or no error)
+    assert.ok(res.status !== 403);
+  });
+
+  test("enforces double-submit CSRF token on sensitive mutating routes when cookie-authenticated", async () => {
+    const { proxy } = await import("../../src/proxy.js");
+
+    // Mismatched token -> 403
+    const reqMismatched = makeMockRequest("http://localhost:3000/api/admin/users/suspend", {
+      method: "POST",
+      headers: {
+        origin: "http://localhost:3000",
+        "x-csrf-token": "wrong-token",
+        host: "localhost:3000",
+      },
+      cookies: {
+        auth_token: "mock-jwt-token",
+        csrf_token: "expected-csrf-token-12345",
+      },
+    });
+
+    const resMismatched = await proxy(reqMismatched);
+    assert.equal(resMismatched.status, 403);
+
+    // Matching token -> allowed
+    const reqMatching = makeMockRequest("http://localhost:3000/api/admin/users/suspend", {
+      method: "POST",
+      headers: {
+        origin: "http://localhost:3000",
+        "x-csrf-token": "valid-csrf-token-99999",
+        host: "localhost:3000",
+      },
+      cookies: {
+        auth_token: "mock-jwt-token",
+        csrf_token: "valid-csrf-token-99999",
+      },
+    });
+
+    const resMatching = await proxy(reqMatching);
+    assert.ok(resMatching.status !== 403);
+  });
+
+  test("apiClient sends x-csrf-token header from document cookie", async () => {
+    const { apiClient } = await import("../../src/lib/api/apiClient.js");
+
+    // Mock document.cookie
+    globalThis.document = {
+      cookie: "csrf_token=client-test-csrf-token-abc; theme=dark",
+    };
+
+    let capturedHeaders = null;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url, config) => {
+      capturedHeaders = config.headers;
+      return {
+        ok: true,
+        headers: new Headers({ "content-type": "application/json" }),
+        json: async () => ({ success: true }),
+      };
+    };
+
+    try {
+      await apiClient("/api/test-endpoint", { body: { test: true } });
+      assert.ok(capturedHeaders);
+      assert.equal(capturedHeaders["x-csrf-token"], "client-test-csrf-token-abc");
+    } finally {
+      globalThis.fetch = originalFetch;
+      delete globalThis.document;
+    }
+  });
+});

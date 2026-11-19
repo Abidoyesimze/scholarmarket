@@ -2,8 +2,10 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
+import { useCreatorAnalytics } from "@/hooks/api/useProfile";
+import { ErrorMessage } from "@/components/common/QueryStateProvider";
 import {
   FiArrowUpRight as ArrowUpRight,
   FiBarChart2 as BarChart,
@@ -13,7 +15,10 @@ import {
   FiShoppingBag as ShoppingBag,
   FiUpload as Upload,
   FiUsers as Users,
+  FiDownload,
 } from "react-icons/fi";
+import { useToast } from "@/hooks/useToast";
+import EmptyState from "@/components/common/EmptyState";
 
 function buildEmptyChart(days = 30) {
   const rows = [];
@@ -68,24 +73,22 @@ function StatCard({ title, value, sub, icon: Icon, color }) {
   );
 }
 
-function EmptyState() {
+function EducatorEmptyState() {
   return (
-    <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center shadow-sm">
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-        <BarChart size={24} />
-      </div>
-      <h2 className="text-lg font-semibold text-gray-900">No educator activity yet</h2>
-      <p className="mx-auto mt-2 max-w-md text-sm text-gray-500">
-        Upload a material and learner activity will appear here as saves, access requests, and completed orders come in.
-      </p>
-      <Link
-        href="/dashboard/upload"
-        className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
-      >
-        <Upload size={16} />
-        Upload Material
-      </Link>
-    </div>
+    <EmptyState
+      icon={<BarChart size={24} />}
+      title="No educator activity yet"
+      description="Upload a material and learner activity will appear here as saves, access requests, and completed orders come in."
+      primaryAction={{
+        label: "Upload Material",
+        href: "/dashboard/upload",
+        icon: <Upload size={16} />,
+      }}
+      secondaryAction={{
+        label: "Browse Marketplace",
+        href: "/marketplace",
+      }}
+    />
   );
 }
 
@@ -196,6 +199,16 @@ function ActivityChart({ data }) {
 }
 
 export default function AnalyticsPage() {
+  const toast = useToast();
+  const today = new Date();
+  const defaultFrom = new Date(today);
+  defaultFrom.setDate(today.getDate() - 30);
+  const [dateRange, setDateRange] = useState(() => ({
+    from: defaultFrom.toISOString().slice(0, 10),
+    to: today.toISOString().slice(0, 10),
+  }));
+  const [exporting, setExporting] = useState(false);
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -203,7 +216,8 @@ export default function AnalyticsPage() {
   useEffect(() => {
     async function fetchAnalytics() {
       try {
-        const res = await fetch("/api/creator/analytics");
+        const params = new URLSearchParams({ from: dateRange.from, to: dateRange.to });
+        const res = await fetch(`/api/creator/analytics?${params.toString()}`);
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body.error ?? `Request failed (${res.status})`);
@@ -217,7 +231,11 @@ export default function AnalyticsPage() {
     }
 
     fetchAnalytics();
-  }, []);
+  }, [dateRange.from, dateRange.to]);
+  const analyticsQuery = useCreatorAnalytics();
+  const data = analyticsQuery.data ?? null;
+  const loading = analyticsQuery.isLoading;
+  const error = analyticsQuery.error?.message ?? null;
 
   const chartData = data?.chartData?.length ? data.chartData : EMPTY_CHART;
   const topMaterials = data?.topMaterials ?? [];
@@ -258,6 +276,37 @@ export default function AnalyticsPage() {
     [data]
   );
 
+  const exportCsv = async () => {
+    if (exporting) return;
+    if (!dateRange.from || !dateRange.to || dateRange.from > dateRange.to) {
+      toast.show({ title: "Invalid date range", message: "Choose a valid start and end date.", type: "error" });
+      return;
+    }
+    setExporting(true);
+    try {
+      const params = new URLSearchParams({ from: dateRange.from, to: dateRange.to });
+      const res = await fetch(`/api/creator/analytics/export?${params.toString()}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Export failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `scholarmarket-analytics-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast.show({ title: "Export ready", message: "Your analytics CSV has been downloaded.", type: "success" });
+    } catch (err) {
+      toast.show({ title: "Export failed", message: err.message, type: "error" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -276,11 +325,44 @@ export default function AnalyticsPage() {
         </Link>
       </div>
 
+      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
+        <label className="text-xs font-semibold text-gray-600">
+          From
+          <input
+            type="date"
+            value={dateRange.from}
+            max={dateRange.to}
+            onChange={(event) => setDateRange((current) => ({ ...current, from: event.target.value }))}
+            className="mt-1 block rounded-full border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-blue-500"
+          />
+        </label>
+        <label className="text-xs font-semibold text-gray-600">
+          To
+          <input
+            type="date"
+            value={dateRange.to}
+            min={dateRange.from}
+            onChange={(event) => setDateRange((current) => ({ ...current, to: event.target.value }))}
+            className="mt-1 block rounded-full border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-blue-500"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={exportCsv}
+          disabled={exporting}
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <FiDownload size={16} />
+          {exporting ? "Exporting..." : "Export CSV"}
+        </button>
+      </div>
+
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}
+      {error && <ErrorMessage message={error} retry={() => analyticsQuery.refetch()} />}
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {loading
@@ -288,7 +370,7 @@ export default function AnalyticsPage() {
           : cards.map((card) => <StatCard key={card.title} {...card} />)}
       </div>
 
-      {!loading && !error && !hasActivity && <EmptyState />}
+      {!loading && !error && !hasActivity && <EducatorEmptyState />}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
         <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">

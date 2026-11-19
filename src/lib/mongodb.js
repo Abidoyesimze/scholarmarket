@@ -33,16 +33,20 @@ const heartbeatFrequencyMS = parseInt(
 const globalForMongo = globalThis;
 
 function getClientPromise() {
-  if (!uri) {
+  // Reuse the client across hot reloads in dev, or when pre-configured in tests.
+  if (globalForMongo._mongoClientPromise) {
+    return globalForMongo._mongoClientPromise;
+  }
+
+  const connectionUri = uri || process.env.MONGODB_URI;
+  if (!connectionUri) {
     const errorMsg = "MONGODB_URI is not set in environment variables";
     console.error(`[Database Error]: ${errorMsg}`);
     throw new Error(errorMsg);
   }
 
-  // Reuse the client across hot reloads in dev, but only connect on demand.
-  if (!globalForMongo._mongoClientPromise) {
-    try {
-      const client = new MongoClient(uri, {
+  try {
+    const client = new MongoClient(connectionUri, {
         maxPoolSize,
         minPoolSize,
         serverSelectionTimeoutMS,
@@ -67,7 +71,6 @@ function getClientPromise() {
       );
       throw error;
     }
-  }
 
   return globalForMongo._mongoClientPromise;
 }
@@ -80,6 +83,7 @@ async function ensureIndexes(db) {
     const purchases = db.collection("purchases");
     const users = db.collection("users");
     const outbox = db.collection("side_effect_outbox");
+    const auditLogs = db.collection("audit_logs");
 
     await materials.createIndex(
       { category: 1, price: 1 },
@@ -92,6 +96,24 @@ async function ensureIndexes(db) {
     await materials.createIndex(
       { category: 1, price: 1, title: 1, description: 1 },
       { name: "materials_search_compound_idx", background: true },
+    );
+
+    await purchases.createIndex(
+      { userId: 1, createdAt: -1 },
+      { name: "purchases_userId_createdAt_idx", background: true },
+    );
+    await purchases.createIndex(
+      { status: 1, updatedAt: -1 },
+      { name: "purchases_status_updatedAt_idx", background: true },
+    );
+
+    await users.createIndex(
+      { email: 1 },
+      { name: "users_email_idx", unique: true, background: true },
+    );
+    await users.createIndex(
+      { createdAt: -1 },
+      { name: "users_createdAt_idx", background: true },
     );
 
     await outbox.createIndex(
@@ -109,6 +131,19 @@ async function ensureIndexes(db) {
     await outbox.createIndex(
       { status: 1, leaseExpiresAt: 1 },
       { name: "outbox_lease_idx", background: true, sparse: true },
+    );
+
+    await auditLogs.createIndex(
+      { actor: 1 },
+      { name: "audit_actor_idx", background: true },
+    );
+    await auditLogs.createIndex(
+      { action: 1 },
+      { name: "audit_action_idx", background: true },
+    );
+    await auditLogs.createIndex(
+      { createdAt: -1 },
+      { name: "audit_createdAt_idx", background: true },
     );
 
     console.log("MongoDB indexes ensured successfully.");

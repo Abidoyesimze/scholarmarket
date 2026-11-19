@@ -5,6 +5,7 @@ import { FaBookmark, FaHeart, FaRegHeart } from "react-icons/fa";
 import SaveMaterialButton from "@/components/materials/SaveMaterialButton";
 import { useSavedMaterials } from "@/hooks/api/useSavedMaterials";
 import { useWallet } from "@/hooks/useWallet";
+import EmptyState from "@/components/common/EmptyState";
 
 export default function SavedMaterialsSection() {
 	const { isConnected, connect, state } = useWallet();
@@ -25,19 +26,21 @@ export default function SavedMaterialsSection() {
 			</div>
 
 			{!isConnected ? (
-				<div className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 p-6 text-center">
-					<FaRegHeart className="mx-auto mb-3 text-2xl text-indigo-400" />
-					<h4 className="font-semibold text-gray-900">Connect your wallet to view saved materials</h4>
-					<p className="text-sm text-gray-600 mt-2">Your wishlist is tied to your wallet so it stays separate from other buyers.</p>
-					<button
-						type="button"
-						onClick={connect}
-						disabled={state.status === "connecting" || state.status === "initializing"}
-						className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60"
-					>
-						{state.status === "connecting" ? "Connecting..." : "Connect wallet"}
-					</button>
-				</div>
+				<EmptyState
+					headingLevel="h4"
+					icon={<FaRegHeart className="text-2xl text-indigo-500" />}
+					title="Connect your wallet to view saved materials"
+					description="Your wishlist is tied to your wallet so it stays separate from other buyers."
+					primaryAction={{
+						label: state.status === "connecting" ? "Connecting..." : "Connect wallet",
+						onClick: connect,
+						disabled: state.status === "connecting" || state.status === "initializing",
+					}}
+					secondaryAction={{
+						label: "Browse marketplace",
+						href: "/marketplace",
+					}}
+				/>
 			) : isLoading ? (
 				<div className="grid sm:grid-cols-2 gap-4">
 					{[1, 2].map((item) => (
@@ -45,11 +48,16 @@ export default function SavedMaterialsSection() {
 					))}
 				</div>
 			) : items.length === 0 ? (
-				<div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center">
-					<FaHeart className="mx-auto mb-3 text-2xl text-rose-300" />
-					<h4 className="font-semibold text-gray-900">No saved materials yet</h4>
-					<p className="text-sm text-gray-600 mt-2">Tap the heart on any marketplace card or material detail page to save it here.</p>
-				</div>
+				<EmptyState
+					headingLevel="h4"
+					icon={<FaHeart className="text-2xl text-rose-400" />}
+					title="No saved materials yet"
+					description="Tap the heart on any marketplace card or material detail page to save it here."
+					primaryAction={{
+						label: "Browse marketplace",
+						href: "/marketplace",
+					}}
+				/>
 			) : (
 				<div className="grid sm:grid-cols-2 gap-4">
 					{items.slice(0, 4).map((material) => (
