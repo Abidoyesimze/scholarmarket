@@ -278,7 +278,9 @@ export function WalletProvider({ children }) {
           : await StellarWalletsKit.authModal();
 
       if (address) {
-        const walletPassphrase = (await readWalletNetwork()) ?? NETWORK_PASSPHRASE;
+        const walletPassphrase = getE2EMockAddress()
+          ? NETWORK_PASSPHRASE
+          : (await readWalletNetwork()) ?? NETWORK_PASSPHRASE;
         if (walletPassphrase !== NETWORK_PASSPHRASE) {
           setState({
             status: WalletStatus.Unsupported,
