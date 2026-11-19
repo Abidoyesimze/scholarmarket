@@ -3,8 +3,13 @@ import { loadAccount, submitTransaction } from './horizonClient.js';
 import { calculateDynamicFee } from './checkoutService.js';
 import { PURCHASE_MANAGER_CONTRACT_ID } from '../config/chain.js';
 
-const isMainnet = process.env.NEXT_PUBLIC_STELLAR_NETWORK === 'mainnet';
-const networkPassphrase = isMainnet ? Networks.PUBLIC : Networks.TESTNET;
+export function getNetworkPassphrase(network = process.env.NEXT_PUBLIC_STELLAR_NETWORK) {
+  return network === 'mainnet' || network === 'PUBLIC'
+    ? Networks.PUBLIC
+    : Networks.TESTNET;
+}
+
+const networkPassphrase = getNetworkPassphrase();
 
 /**
  * Service to handle blockchain-level refund approvals.

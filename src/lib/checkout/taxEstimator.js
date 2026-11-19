@@ -4,7 +4,7 @@
  */
 
 // Default tax rates by country/region (in basis points: 10000 = 100%)
-const DEFAULT_TAX_RATES = {
+export const DEFAULT_TAX_RATES = {
   US: 800, // 8% average sales tax
   GB: 2000, // 20% VAT
   DE: 1900, // 19% VAT
@@ -50,7 +50,7 @@ const DEFAULT_TAX_RATES = {
  * @param {string} ipAddress - The client's IP address
  * @returns {Promise<Object>} Geolocation data with country code
  */
-async function resolveGeolocation(ipAddress) {
+export async function resolveGeolocation(ipAddress) {
   try {
     // Use a free geolocation API (ip-api.com)
     // In production, consider using a paid service like MaxMind GeoIP2
@@ -80,9 +80,25 @@ async function resolveGeolocation(ipAddress) {
  * @param {string} countryCode - ISO 3166-1 alpha-2 country code
  * @returns {number} Tax rate in basis points (10000 = 100%)
  */
-function getTaxRateForCountry(countryCode) {
+export function getTaxRateForCountry(countryCode) {
   const upperCode = countryCode?.toUpperCase() || 'DEFAULT';
   return DEFAULT_TAX_RATES[upperCode] || DEFAULT_TAX_RATES.DEFAULT;
+}
+
+function parseSevenDecimalAmount(value) {
+  if (typeof value === 'string') {
+    throw new Error('Invalid amount');
+  } else if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    throw new Error('Invalid amount');
+  }
+
+  const decimal = typeof value === 'number'
+    ? value.toFixed(7)
+    : String(value).trim();
+  const [wholeRaw, fractionRaw = ''] = decimal.split('.');
+  const whole = BigInt(wholeRaw || '0');
+  const fraction = (fractionRaw + '0000000').slice(0, 7);
+  return { units: whole * 10_000_000n + BigInt(fraction || '0') };
 }
 
 /**
@@ -91,8 +107,18 @@ function getTaxRateForCountry(countryCode) {
  * @param {number} taxRateBps - Tax rate in basis points
  * @returns {number} Tax amount
  */
-function calculateTaxAmount(baseAmount, taxRateBps) {
-  return Math.round((baseAmount * taxRateBps) / 10000);
+export function calculateTaxAmount(baseAmount, taxRateBps) {
+  if (!isValidTaxRate(taxRateBps)) {
+    throw new Error('Invalid tax rate');
+  }
+
+  const amount = parseSevenDecimalAmount(baseAmount);
+  if (amount.units < 0n) throw new Error('Invalid amount');
+
+  const numerator = amount.units * BigInt(taxRateBps);
+  const taxUnits = (numerator + 5000n) / 10000n;
+
+  return Number(taxUnits) / 10_000_000;
 }
 
 /**
@@ -104,6 +130,7 @@ function calculateTaxAmount(baseAmount, taxRateBps) {
  * @returns {Promise<Object>} Tax estimation result
  */
 export async function estimateTax({ ipAddress, baseAmount, countryCode }) {
+  parseSevenDecimalAmount(baseAmount);
   let geoData;
 
   if (countryCode) {
@@ -146,7 +173,13 @@ export async function estimateTax({ ipAddress, baseAmount, countryCode }) {
 export async function applyTaxToCheckout(checkoutIntent) {
   const { amount, buyerIp, buyerCountry } = checkoutIntent;
 
-  if (!amount || amount <= 0) {
+  if (amount === undefined || amount === null) {
+    throw new Error('Invalid amount for tax calculation');
+  }
+  try {
+    const { units } = parseSevenDecimalAmount(amount);
+    if (units <= 0n) throw new Error('Invalid amount');
+  } catch {
     throw new Error('Invalid amount for tax calculation');
   }
 

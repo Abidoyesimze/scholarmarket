@@ -1,5 +1,28 @@
 "use client";
 
+import React, { useState, useEffect } from 'react';
+import './moderation.css';
+import { withAdminGuard } from '@/lib/auth/adminAuth';
+import useConfirm from '@/hooks/useConfirm';
+import { useToast } from '@/hooks/useToast';
+
+/**
+ * Mock fetch for flagged items – in real code this would call the backend.
+ */
+const fetchFlagged = async () => {
+  // Sample data
+  return [
+    { id: 1, title: 'Document A.pdf', reason: 'Inappropriate content', reporter: 'user123' },
+    { id: 2, title: 'ImageB.png', reason: 'Copyright violation', reporter: 'user456' },
+    { id: 3, title: 'VideoC.mp4', reason: 'Harassment', reporter: 'user789' },
+  ];
+};
+
+function ModerationDashboard() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { confirm, dialog } = useConfirm();
+  const toast = useToast();
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import "./moderation.css";
@@ -223,6 +246,19 @@ function ModerationDashboard() {
     }
   };
 
+  const handleAction = async (id, action) => {
+    const confirmed = await confirm({
+      title: `${action} flagged item`,
+      description: `Are you sure you want to ${action.toLowerCase()} item #${id}?`,
+      confirmLabel: action,
+      danger: action !== 'Approve',
+    });
+    if (!confirmed) return;
+
+    // In real app, send request to backend with auth
+    toast.show({ title: 'Action applied', message: `Action "${action}" applied to item #${id}`, type: 'success' });
+    // Remove item from UI for demo purposes
+    setItems(prev => prev.filter(i => i.id !== id));
   const handleDelistClick = () => {
     setDelistReason("");
     setDelistReasonError("");
@@ -240,6 +276,10 @@ function ModerationDashboard() {
 
   return (
     <section className="admin-moderation">
+      {dialog}
+      <h2 className="title">Content Moderation Dashboard</h2>
+      {items.length === 0 ? (
+        <p className="empty">No flagged items at the moment.</p>
       <div className="moderation-header">
         <h2 className="title">Content Moderation Dashboard</h2>
         <p className="subtitle">

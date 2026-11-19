@@ -66,10 +66,11 @@ export async function apiClient(endpoint, { body, ...customConfig } = {}) {
     try {
       errorData = await response.json();
     } catch (e) {
-      errorData = { error: 'Unknown server error' };
+      errorData = { title: 'Unknown server error', detail: 'Unknown server error', status: response.status };
     }
 
-    const error = new Error(errorData.error || `HTTP error! status: ${response.status}`);
+    const message = errorData.detail || errorData.error || errorData.message || errorData.title || `HTTP error! status: ${response.status}`;
+    const error = new Error(message);
     error.status = response.status;
     error.data = errorData;
     
