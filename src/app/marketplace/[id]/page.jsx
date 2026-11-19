@@ -640,7 +640,7 @@ export default function MaterialDetailsPage() {
 		<>
 			<Navbar />
 
-			<main className="relative bg-[#fffaf6] min-h-screen py-6 sm:py-10 px-4 sm:px-6 md:px-10 lg:px-20">
+			<main id="main" tabIndex={-1} className="relative bg-[#fffaf6] min-h-screen py-6 sm:py-10 px-4 sm:px-6 md:px-10 lg:px-20 focus:outline-none">
 				{/* Background grid pattern */}
 				<div
 					className="absolute inset-0 bg-[linear-gradient(to_right,#f2ede8_1px,transparent_1px),linear-gradient(to_bottom,#f2ede8_1px,transparent_1px)] bg-[size:40px_40px] opacity-70 pointer-events-none -z-10"

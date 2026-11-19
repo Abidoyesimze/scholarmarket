@@ -7,6 +7,7 @@ import { ComparisonProvider } from "@/providers/ComparisonProvider";
 import { TransactionProvider } from "@/providers/TransactionProvider";
 import CartDrawer from "@/components/CartDrawer";
 import ComparisonMatrix from "@/components/ComparisonMatrix";
+import RouteFocusManager from "@/components/RouteFocusManager";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -51,6 +52,13 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[200] focus:rounded-lg focus:bg-white focus:px-4 focus:py-3 focus:text-sm focus:font-semibold focus:text-slate-900 focus:shadow-lg"
+        >
+          Skip to main content
+        </a>
+        <RouteFocusManager />
         <WalletProvider>
           <ToastProvider>
             <CartProvider>

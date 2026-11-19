@@ -15,7 +15,7 @@ export default function DashboardLayout({ children }) {
 				<DashboardHeader />
 
 				{/* Scrollable main content */}
-				<main className="flex-1 overflow-y-auto p-8 bg-background">
+				<main id="main" tabIndex={-1} className="flex-1 overflow-y-auto p-8 bg-background focus:outline-none">
 					<div className="max-w-7xl mx-auto">{children}</div>
 				</main>
 			</div>

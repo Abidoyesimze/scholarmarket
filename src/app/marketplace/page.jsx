@@ -398,7 +398,7 @@ export default function MarketPage() {
           )}
         </aside>
 
-        <main className="flex-1 px-4 md:px-8 py-8 md:py-10 overflow-x-hidden">
+        <main id="main" tabIndex={-1} className="flex-1 px-4 md:px-8 py-8 md:py-10 overflow-x-hidden focus:outline-none">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
