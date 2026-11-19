@@ -59,7 +59,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps --no-audit --no-fund
 
       - name: Lint frontend
         run: npm run lint --if-present -- --ignore-pattern "src/app/api/**" src/app src/components src/hooks src/providers src/utils

@@ -10,18 +10,15 @@ export default function Pagination({
 }) {
   if (!totalPages || totalPages <= 1) return null;
 
-  const pages = [];
+  const pages = [1];
   const siblingCount = 1;
-  const left = Math.max(1, page - siblingCount);
-  const right = Math.min(totalPages, page + siblingCount);
+  const left = Math.max(2, page - siblingCount);
+  const right = Math.min(totalPages - 1, page + siblingCount);
 
-  if (page > 1) pages.push(1);
   for (let index = left; index <= right; index += 1) {
-    if (index > 1 && index < totalPages) {
-      pages.push(index);
-    }
+    pages.push(index);
   }
-  if (page < totalPages) pages.push(totalPages);
+  if (totalPages > 1) pages.push(totalPages);
 
   const uniquePages = [...new Set(pages.filter((value) => Number.isInteger(value)))];
   const displayPages = [];
