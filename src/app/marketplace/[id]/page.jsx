@@ -879,6 +879,10 @@ export default function MaterialDetailsPage() {
 											currentAddress={address}
 											creatorAddress={material.userAddress || material.ownerAddress || material.creatorAddress || material.author?.walletAddress}
 										/>
+
+										{isOwned && address ? (
+											<LearnerNotes materialId={id} walletAddress={address} />
+										) : null}
 									</div>
 
 									{/* RIGHT: sticky purchase card (first on mobile for early CTA visibility) */}

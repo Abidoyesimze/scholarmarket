@@ -5,6 +5,7 @@ vi.mock("@/lib/email", () => ({ sendReceiptIfEligible: vi.fn().mockResolvedValue
 
 import { runIndexerBatch } from "../stellarIndexer.js";
 import { COLLECTIONS } from "@/lib/backend/schemaContracts";
+import { purchaseRefundedRawEvent } from "./fixtures/refundEvents.js";
 
 function toBase64(scVal) {
   return scVal.toXDR("base64");
@@ -219,5 +220,114 @@ describe("runIndexerBatch", () => {
     expect(first).toEqual({ applied: 1, skipped: 0, nextCursor: "c" });
     expect(second).toEqual({ applied: 0, skipped: 1, nextCursor: "c" });
     expect(db.collection(COLLECTIONS.purchases)._all()).toHaveLength(1);
+  });
+});
+
+describe("runIndexerBatch – purchase.refunded", () => {
+  function setup() {
+    const db = createFakeDb();
+    const buyer = Keypair.random().publicKey();
+    const seller = Keypair.random().publicKey();
+    const asset = Keypair.random().publicKey();
+    const materialId = Buffer.alloc(32, 11);
+    const purchaseEvent = purchaseCompletedRawEvent({
+      id: "evt-purchase",
+      purchaseId: 7,
+      materialId,
+      buyer,
+      seller,
+      asset,
+      amount: 3_000_000,
+    });
+    const refundEvent = purchaseRefundedRawEvent({
+      id: "evt-refund",
+      purchaseId: 7,
+      materialId,
+      buyer,
+      asset,
+      refundAmount: 3_000_000,
+    });
+    const enqueue = vi.fn().mockResolvedValue(undefined);
+    return { db, buyer, materialId, purchaseEvent, refundEvent, enqueue };
+  }
+
+  function sourceOf(events) {
+    return { getEvents: vi.fn().mockResolvedValue({ events, nextCursor: "c", lastLedger: 200 }) };
+  }
+
+  it("revokes the entitlement and marks the purchase refunded within one cycle", async () => {
+    const { db, buyer, materialId, purchaseEvent, refundEvent, enqueue } = setup();
+
+    const result = await runIndexerBatch({ db, eventSource: sourceOf([purchaseEvent, refundEvent]), enqueue });
+
+    expect(result).toEqual({ applied: 2, skipped: 0, nextCursor: "c" });
+
+    const [entitlement] = db.collection(COLLECTIONS.entitlementCache)._all();
+    expect(entitlement).toMatchObject({
+      materialId: materialId.toString("hex"),
+      buyerAddress: buyer.toLowerCase(),
+      active: false,
+      settlementState: "Refunded",
+      refundEventId: "evt-refund",
+    });
+
+    const [purchase] = db.collection(COLLECTIONS.purchases)._all();
+    expect(purchase).toMatchObject({
+      status: "refunded",
+      refundEventId: "evt-refund",
+      refundedChainPurchaseId: "7",
+      refundAmount: "3000000",
+    });
+  });
+
+  it("enqueues a refund email to the buyer via the outbox", async () => {
+    const { db, buyer, materialId, purchaseEvent, refundEvent, enqueue } = setup();
+
+    await runIndexerBatch({ db, eventSource: sourceOf([purchaseEvent, refundEvent]), enqueue });
+
+    const refundCalls = enqueue.mock.calls.filter(([entry]) => entry.intent.channel === "purchase_refund");
+    expect(refundCalls).toHaveLength(1);
+    expect(refundCalls[0][0]).toMatchObject({
+      sourceAggregate: "purchase",
+      intent: {
+        type: "email",
+        channel: "purchase_refund",
+        payload: {
+          refundEventId: "evt-refund",
+          materialId: materialId.toString("hex"),
+          buyerAddress: buyer.toLowerCase(),
+          refundAmount: "3000000",
+        },
+      },
+    });
+  });
+
+  it("does not double-process a refund when the same ledger range is replayed", async () => {
+    const { db, purchaseEvent, refundEvent, enqueue } = setup();
+    const eventSource = sourceOf([purchaseEvent, refundEvent]);
+
+    await runIndexerBatch({ db, eventSource, enqueue });
+    const replay = await runIndexerBatch({ db, eventSource, enqueue });
+
+    expect(replay).toEqual({ applied: 0, skipped: 2, nextCursor: "c" });
+
+    const refundEmails = enqueue.mock.calls.filter(([entry]) => entry.intent.channel === "purchase_refund");
+    expect(refundEmails).toHaveLength(1);
+
+    // Replaying purchase.completed must not re-grant access after the refund.
+    const entitlements = db.collection(COLLECTIONS.entitlementCache)._all();
+    expect(entitlements).toHaveLength(1);
+    expect(entitlements[0].active).toBe(false);
+    expect(db.collection(COLLECTIONS.purchases)._all()[0].status).toBe("refunded");
+  });
+
+  it("revokes access even if the refund is indexed before the purchase was seen", async () => {
+    const { db, refundEvent, enqueue } = setup();
+
+    await runIndexerBatch({ db, eventSource: sourceOf([refundEvent]), enqueue });
+
+    const [entitlement] = db.collection(COLLECTIONS.entitlementCache)._all();
+    expect(entitlement.active).toBe(false);
+    expect(enqueue).toHaveBeenCalledTimes(1);
   });
 });

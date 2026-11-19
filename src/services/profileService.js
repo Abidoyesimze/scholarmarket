@@ -20,5 +20,13 @@ export const profileService = {
   getDashboardStats: async () => {
     return apiClient('/api/dashboard/stats');
   },
+
+  getCreatorAnalytics: async () => {
+    return apiClient('/api/creator/analytics');
+  },
+
+  getLearningProgress: async () => {
+    return apiClient('/api/progress');
+  },
 };
 

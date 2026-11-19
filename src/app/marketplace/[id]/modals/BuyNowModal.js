@@ -276,7 +276,7 @@ export default function BuyNowModal({
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.5 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black backdrop-blur-sm"
+              className="fixed inset-0 z-[101] bg-black backdrop-blur-sm"
               onClick={handleClose}
             />
 
@@ -284,7 +284,7 @@ export default function BuyNowModal({
               initial={{ opacity: 0, scale: 0.92, y: 50 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.92, y: 50 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              className="fixed inset-0 z-[102] flex items-center justify-center p-4"
             >
               <div className="relative w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
                 <button

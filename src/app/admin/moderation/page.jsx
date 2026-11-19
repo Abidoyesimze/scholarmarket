@@ -1,75 +1,84 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import './moderation.css';
-import { withAdminGuard } from '@/lib/auth/adminAuth';
+import { useModerationQueue, useResolveReport } from '@/hooks/api/useModeration';
+import { QueryStateProvider } from '@/components/common/QueryStateProvider';
 
-/**
- * Mock fetch for flagged items – in real code this would call the backend.
- */
-const fetchFlagged = async () => {
-  // Sample data
-  return [
-    { id: 1, title: 'Document A.pdf', reason: 'Inappropriate content', reporter: 'user123' },
-    { id: 2, title: 'ImageB.png', reason: 'Copyright violation', reporter: 'user456' },
-    { id: 3, title: 'VideoC.mp4', reason: 'Harassment', reporter: 'user789' },
-  ];
-};
+function AccessDenied() {
+  return (
+    <section className="admin-moderation" data-testid="moderation-access-denied">
+      <h2 className="title">Access denied</h2>
+      <p className="empty">Content moderation is available to administrators only.</p>
+    </section>
+  );
+}
 
 function ModerationDashboard() {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queueQuery = useModerationQueue();
+  const resolveReport = useResolveReport();
 
-  useEffect(() => {
-    fetchFlagged().then(data => {
-      setItems(data);
-      setLoading(false);
-    });
-  }, []);
+  const status = queueQuery.error?.status;
+  if (status === 401 || status === 403) {
+    return <AccessDenied />;
+  }
 
-  const handleAction = (id, action) => {
-    // In real app, send request to backend with auth
-    alert(`Action "${action}" applied to item #${id}`);
-    // Remove item from UI for demo purposes
-    setItems(prev => prev.filter(i => i.id !== id));
-  };
-
-  if (loading) return <p className="loading">Loading flagged content...</p>;
+  const pendingId = resolveReport.isPending ? resolveReport.variables?.reportId : null;
 
   return (
     <section className="admin-moderation">
       <h2 className="title">Content Moderation Dashboard</h2>
-      {items.length === 0 ? (
-        <p className="empty">No flagged items at the moment.</p>
-      ) : (
-        <table className="mod-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Title</th>
-              <th>Reason</th>
-              <th>Reporter</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map(item => (
-              <tr key={item.id}>
-                <td>{item.id}</td>
-                <td>{item.title}</td>
-                <td>{item.reason}</td>
-                <td>{item.reporter}</td>
-                <td className="action-cell">
-                  <button className="action-btn approve" onClick={() => handleAction(item.id, 'Approve')}>Approve</button>
-                  <button className="action-btn deny" onClick={() => handleAction(item.id, 'Deny')}>Deny</button>
-                  <button className="action-btn suspend" onClick={() => handleAction(item.id, 'Suspend')}>Suspend</button>
-                </td>
+      {resolveReport.error ? (
+        <p role="alert" className="empty">{resolveReport.error.message}</p>
+      ) : null}
+      <QueryStateProvider
+        query={queueQuery}
+        loadingComponent={<p className="loading">Loading flagged content...</p>}
+        emptyComponent={<p className="empty">No flagged items at the moment.</p>}
+        renderData={(items) => (
+          <table className="mod-table" data-testid="moderation-queue">
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th>Reason</th>
+                <th>Details</th>
+                <th>Reporter</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id} data-testid="moderation-report">
+                  <td>{item.materialTitle || item.materialId}</td>
+                  <td>{item.reason}</td>
+                  <td>{item.description || '—'}</td>
+                  <td>{item.reporterAddress || 'Anonymous'}</td>
+                  <td className="action-cell">
+                    <button
+                      type="button"
+                      className="action-btn deny"
+                      disabled={pendingId === item.id}
+                      onClick={() => resolveReport.mutate({ reportId: item.id, action: 'delist' })}
+                    >
+                      Delist
+                    </button>
+                    <button
+                      type="button"
+                      className="action-btn approve"
+                      disabled={pendingId === item.id}
+                      onClick={() => resolveReport.mutate({ reportId: item.id, action: 'dismiss' })}
+                    >
+                      Dismiss
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      />
     </section>
   );
 }
-export default withAdminGuard(ModerationDashboard);
+
+export default ModerationDashboard;
