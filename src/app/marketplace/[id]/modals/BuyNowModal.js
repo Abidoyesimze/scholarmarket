@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { FaTimes } from "react-icons/fa";
-import { useAccount } from "wagmi";
+import { useWallet } from "@/hooks/useWallet";
 import CheckoutReceiptModal from "../../../../../components/modals/CheckoutReceiptModal";
 import ConnectWalletModal from "./ConnectWalletModal";
 import TransactionStatusPanel from "@/components/transactions/TransactionStatusPanel";
@@ -72,7 +72,7 @@ export default function BuyNowModal({
   materialCreator,
   onAccessUpdated,
 }) {
-  const { address } = useAccount();
+  const { address } = useWallet();
   const createPurchaseMutation = useCreatePurchase();
   const startAccessRequestMutation = useStartAccessRequest();
   const [showWallet, setShowWallet] = useState(false);
