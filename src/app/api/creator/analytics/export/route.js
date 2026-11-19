@@ -31,6 +31,18 @@ export async function GET(request) {
     const toDate = toParam ? new Date(toParam) : null;
 
     const db = await getDb();
+    const url = new URL(request.url);
+    const from = url.searchParams.get("from") ? new Date(url.searchParams.get("from")) : null;
+    const toParam = url.searchParams.get("to") ? new Date(url.searchParams.get("to")) : null;
+    const to = toParam && !Number.isNaN(toParam.getTime()) ? toParam : null;
+    const validFrom = from && !Number.isNaN(from.getTime()) ? from : null;
+    if (validFrom && to && validFrom > to) {
+      return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
+    }
+
+    // 1. Fetch materials to get material IDs
+    const materials = await db.collection("materials")
+      .find({ userAddress: creatorAddress }, { projection: { materialId: 1, _id: 1 } })
 
     // 1. Fetch materials owned by this creator
     const materials = await db
@@ -45,6 +57,14 @@ export async function GET(request) {
     // 2. Fetch purchases for these materials
     let purchases = [];
     if (materialIdStrings.length > 0) {
+      const dateFilter = validFrom || to ? { $and: [] } : null;
+      if (dateFilter) {
+        if (validFrom) dateFilter.$and.push({ $or: [{ purchasedAt: { $gte: validFrom } }, { createdAt: { $gte: validFrom } }] });
+        if (to) dateFilter.$and.push({ $or: [{ purchasedAt: { $lte: to } }, { createdAt: { $lte: to } }] });
+      }
+
+      purchases = await db.collection("purchases")
+        .find(dateFilter ? { materialId: { $in: materialIdStrings }, ...dateFilter } : { materialId: { $in: materialIdStrings } })
       purchases = await db
         .collection("purchases")
         .find({ materialId: { $in: materialIdStrings } })
@@ -53,11 +73,17 @@ export async function GET(request) {
     }
 
     // 3. Fetch payouts for this creator
+    const payoutDocs = await db.collection("payouts")
     const payouts = await db
       .collection("payouts")
       .find({ creatorAddress })
       .sort({ createdAt: -1 })
       .toArray();
+    const payouts = payoutDocs.filter((p) => {
+      if (!validFrom && !to) return true;
+      const date = new Date(p.createdAt || p.updatedAt || 0);
+      return (!validFrom || date >= validFrom) && (!to || date <= to);
+    });
 
     // 4. Fetch refunds for this creator's materials
     let refunds = [];
@@ -140,6 +166,9 @@ export async function GET(request) {
     const headers = ["Date", "Item ID", "Buyer Wallet", "Price", "Paid Asset", "Status"];
     const csvRows = [headers.map(escapeCsvCell).join(",")];
 
+    const csvEscape = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    for (const r of records) {
+      const row = [r.date, r.itemId, r.buyerWallet, r.price, r.paidAsset, r.status].map(csvEscape);
     for (const r of filteredRecords) {
       const row = [
         escapeCsvCell(r.date),
@@ -157,7 +186,7 @@ export async function GET(request) {
     return new NextResponse(csvString, {
       headers: {
         "Content-Type": "text/csv",
-        "Content-Disposition": `attachment; filename="analytics-${creatorAddress}.csv"`,
+        "Content-Disposition": `attachment; filename="scholarmarket-analytics-${new Date().toISOString().slice(0, 10)}.csv"`,
       },
     });
   } catch (error) {
