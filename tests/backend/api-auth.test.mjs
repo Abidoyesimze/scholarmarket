@@ -57,10 +57,15 @@ test("verifyAdminAuth rejects missing and expired admin tokens", async () => {
   process.env.JWT_SECRET = secret;
   const missing = await verifyAdminAuth(requestWithToken(null));
   assert.equal(missing.authorized, false);
-  assert.equal(missing.status, 403);
+  assert.equal(missing.status, 401);
 
   const expired = signJwt({ sub: "admin-1", role: "admin" }, secret, Math.floor(Date.now() / 1000) - 10);
   const rejected = await verifyAdminAuth(requestWithToken(expired));
   assert.equal(rejected.authorized, false);
-  assert.equal(rejected.status, 403);
+  assert.equal(rejected.status, 401);
+
+  const nonAdmin = signJwt({ sub: "user-1", role: "user" }, secret, Math.floor(Date.now() / 1000) + 3600);
+  const forbidden = await verifyAdminAuth(requestWithToken(nonAdmin));
+  assert.equal(forbidden.authorized, false);
+  assert.equal(forbidden.status, 403);
 });

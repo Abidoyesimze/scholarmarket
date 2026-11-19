@@ -1,31 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { FiCheckCircle, FiBook } from "react-icons/fi";
+import { useLearningProgress } from "@/hooks/api/useProfile";
 
 export default function LearningProgress() {
-  const [progress, setProgress] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading } = useLearningProgress();
+  // Progress is non-critical: on error, fall back to the empty state.
+  const progress = Array.isArray(data) ? data : [];
 
-  useEffect(() => {
-    async function fetchProgress() {
-      try {
-        const res = await fetch("/api/progress");
-        if (res.ok) {
-          const data = await res.json();
-          setProgress(data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch progress", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchProgress();
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6">
         <div className="h-6 w-1/3 bg-gray-200 dark:bg-gray-800 rounded mb-4 animate-pulse"></div>

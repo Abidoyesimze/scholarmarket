@@ -21,5 +21,9 @@ export const purchaseService = {
   getPurchaseHistory: async () => {
     return apiClient('/api/purchase');
   },
+
+  getPurchasedMaterials: async () => {
+    return apiClient('/api/purchased-materials');
+  },
 };
 

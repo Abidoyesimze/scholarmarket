@@ -1,9 +1,10 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Web3Provider from "@/providers/Web3Provider";
+import { WalletProvider } from "@/providers/WalletProvider";
 import { ToastProvider } from "@/providers/ToastProvider";
 import { CartProvider } from "@/providers/CartProvider";
 import { ComparisonProvider } from "@/providers/ComparisonProvider";
+import { TransactionProvider } from "@/providers/TransactionProvider";
 import CartDrawer from "@/components/CartDrawer";
 import ComparisonMatrix from "@/components/ComparisonMatrix";
 
@@ -50,17 +51,19 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-        <Web3Provider>
+        <WalletProvider>
           <ToastProvider>
             <CartProvider>
               <ComparisonProvider>
-                {children}
-                <CartDrawer />
-                <ComparisonMatrix />
+                <TransactionProvider>
+                  {children}
+                  <CartDrawer />
+                  <ComparisonMatrix />
+                </TransactionProvider>
               </ComparisonProvider>
             </CartProvider>
           </ToastProvider>
-        </Web3Provider>
+        </WalletProvider>
       </body>
     </html>
   );

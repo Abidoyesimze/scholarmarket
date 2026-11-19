@@ -185,7 +185,15 @@ export async function isPurchaseReleasable(purchaseId) {
  * @param {string} buyerAddress - The buyer's Stellar public key
  * @returns {Promise<{success: boolean, hash?: string, error?: string}>}
  */
+let refundMockHandler = null;
+export function setRefundMockHandler(fn) {
+  refundMockHandler = fn;
+}
+
 export async function approveRefundOnChain(claimId, destinationAddress, amount, assetCode = 'USDC') {
+  if (refundMockHandler) {
+    return refundMockHandler(claimId, destinationAddress, amount, assetCode);
+  }
   try {
     const adminSecret = process.env.STELLAR_ADMIN_SECRET;
     if (!adminSecret) {

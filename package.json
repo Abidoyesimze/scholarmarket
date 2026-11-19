@@ -28,6 +28,8 @@
     "test:backend": "node --test tests/backend/*.test.mjs",
     "test:visual": "playwright test test/visual",
     "test:visual:debug": "playwright test --debug test/visual",
+    "test:e2e": "playwright test --config playwright.config.ts --project=chromium",
+    "test:e2e:flows": "playwright test --config playwright.config.ts --project=chromium tests/e2e/learner-journey.spec.ts tests/e2e/admin-moderation.spec.ts",
     "test:coverage": "vitest run --coverage",
     "load:k6": "k6 run tests/load/materials-search.k6.js",
     "load:artillery": "artillery run tests/load/materials-search.yml",
@@ -37,18 +39,15 @@
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "indexer:stellar": "node scripts/run-stellar-indexer.mjs",
     "clean:intents": "node scripts/clean-stale-intents.mjs",
-    "clean:intents:dry": "DRY_RUN=true node scripts/clean-stale-intents.mjs"
+    "clean:intents:dry": "DRY_RUN=true node scripts/clean-stale-intents.mjs",
+    "check:openapi": "node scripts/check-openapi-coverage.mjs"
   },
   "dependencies": {
     "@creit-tech/stellar-wallets-kit": "npm:@jsr/creit-tech__stellar-wallets-kit@^2.1.0",
-    "@openzeppelin/contracts": "^5.6.1",
-    "@rainbow-me/rainbowkit": "^2.2.10",
     "@react-native-async-storage/async-storage": "^3.0.2",
     "@stellar/stellar-sdk": "^13.3.0",
     "@tanstack/react-query": "^5.99.2",
     "@vercel/blob": "^2.3.3",
-    "@web3modal/ethereum": "^2.7.1",
-    "@web3modal/wagmi": "^5.1.11",
     "framer-motion": "^12.38.0",
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^6.21.0",
@@ -62,12 +61,11 @@
     "react-dom": "^19.2.5",
     "react-easy-crop": "^5.5.3",
     "react-icons": "^5.6.0",
-    "swagger-ui-react": "^5.32.6",
-    "viem": "^2.48.2",
-    "wagmi": "^2.19.5"
+    "swagger-ui-react": "^5.32.6"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.1.2",
+    "@playwright/test": "^1.45.0",
     "@tailwindcss/postcss": "^4.2.3",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",

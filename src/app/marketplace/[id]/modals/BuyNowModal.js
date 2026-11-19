@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { FaTimes } from "react-icons/fa";
-import { useAccount } from "wagmi";
+import { useWallet } from "@/hooks/useWallet";
 import CheckoutReceiptModal from "../../../../../components/modals/CheckoutReceiptModal";
 import ConnectWalletModal from "./ConnectWalletModal";
 import TransactionStatusPanel from "@/components/transactions/TransactionStatusPanel";
@@ -72,7 +72,7 @@ export default function BuyNowModal({
   materialCreator,
   onAccessUpdated,
 }) {
-  const { address } = useAccount();
+  const { address } = useWallet();
   const createPurchaseMutation = useCreatePurchase();
   const startAccessRequestMutation = useStartAccessRequest();
   const [showWallet, setShowWallet] = useState(false);
@@ -276,7 +276,7 @@ export default function BuyNowModal({
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.5 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black backdrop-blur-sm"
+              className="fixed inset-0 z-[101] bg-black backdrop-blur-sm"
               onClick={handleClose}
             />
 
@@ -284,7 +284,7 @@ export default function BuyNowModal({
               initial={{ opacity: 0, scale: 0.92, y: 50 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.92, y: 50 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              className="fixed inset-0 z-[102] flex items-center justify-center p-4"
             >
               <div className="relative w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
                 <button
