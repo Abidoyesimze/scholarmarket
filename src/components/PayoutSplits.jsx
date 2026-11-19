@@ -115,10 +115,7 @@ export default function PayoutSplits({ onChange, initialSplits = [] }) {
                     ? "border-red-500"
                     : "border-gray-300"
                 }`}
-                />
-              <p className="mt-1 text-[11px] text-gray-500">
-                {Math.round((Number(split.percentage) || 0) * 100).toLocaleString()} bps
-              </p>
+              />
               {errors[`address_${index}`] && (
                 <p className="text-red-600 text-xs mt-1">
                   {errors[`address_${index}`]}
@@ -139,6 +136,9 @@ export default function PayoutSplits({ onChange, initialSplits = [] }) {
                     : "border-gray-300"
                 }`}
               />
+              <p className="mt-1 text-[11px] text-gray-500">
+                {Math.round((Number(split.percentage) || 0) * 100).toLocaleString()} bps
+              </p>
               {errors[`percentage_${index}`] && (
                 <p className="text-red-600 text-xs mt-1">
                   {errors[`percentage_${index}`]}
