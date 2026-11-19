@@ -46,43 +46,65 @@ export async function apiClient(endpoint, { body, ...customConfig } = {}) {
 
   try {
     const response = await fetch(endpoint, config);
-    
+
     // Handle successful responses
     if (response.ok) {
-      // Check if response is empty
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
         return await response.json();
       }
       return await response.text();
     }
-    
+
     // Handle specific error statuses
     if (response.status === 401) {
       console.warn('API Unauthorized: Possible session expiry');
     }
 
-    let errorData;
+    let errorData = {};
+    const contentType = response.headers.get('content-type');
+
     try {
-      errorData = await response.json();
-    } catch (e) {
-      errorData = { title: 'Unknown server error', detail: 'Unknown server error', status: response.status };
+      if (
+        contentType &&
+        (contentType.includes('application/json') ||
+          contentType.includes('application/problem+json'))
+      ) {
+        errorData = await response.json();
+      } else {
+        const text = await response.text();
+        errorData = { detail: text || `HTTP error! status: ${response.status}` };
+      }
+    } catch {
+      errorData = {
+        detail: 'Unknown server error',
+        title: 'Internal Server Error',
+        status: response.status,
+      };
     }
 
-    const message = errorData.detail || errorData.error || errorData.message || errorData.title || `HTTP error! status: ${response.status}`;
+    const message =
+      errorData.detail ||
+      errorData.error ||
+      errorData.title ||
+      `HTTP error! status: ${response.status}`;
+
     const error = new Error(message);
-    error.status = response.status;
+    error.status = errorData.status || response.status;
+    error.title = errorData.title;
+    error.type = errorData.type;
+    error.instance = errorData.instance;
+    error.errors = Array.isArray(errorData.errors) ? errorData.errors : [];
     error.data = errorData;
-    
-    console.error(`API Error [${response.status}] at ${endpoint}:`, error.message);
+
+    console.error(`API Error [${error.status}] at ${endpoint}:`, error.message);
     throw error;
   } catch (err) {
     // If it's already an error object with status, just rethrow it
     if (err.status) throw err;
-    
+
     const wrappedError = new Error(err.message || 'Network request failed');
     console.error(`API Network Error at ${endpoint}:`, wrappedError.message);
     throw wrappedError;
   }
 }
-
