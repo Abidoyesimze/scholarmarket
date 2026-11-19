@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { FaPlus, FaTrash } from "react-icons/fa";
+import { validatePayoutSplits, TOTAL_BPS } from "@/lib/payoutSplits";
 
 export default function PayoutSplits({ onChange, initialSplits = [] }) {
   const [splits, setSplits] = useState(
@@ -15,54 +16,14 @@ export default function PayoutSplits({ onChange, initialSplits = [] }) {
     validateSplits();
   }, [splits]);
 
-  const validateWalletAddress = (address) => {
-    // Stellar public key validation (starts with G, 56 characters)
-    const stellarRegex = /^G[A-Z0-9]{55}$/;
-    return stellarRegex.test(address);
-  };
-
   function validateSplits() {
-    const newErrors = {};
-    let totalPercentage = 0;
-
-    splits.forEach((split, index) => {
-      // Validate wallet address
-      if (split.address && !validateWalletAddress(split.address)) {
-        newErrors[`address_${index}`] = "Invalid Stellar wallet address";
-      }
-
-      // Check for duplicate addresses
-      const duplicateIndex = splits.findIndex(
-        (s, i) => i !== index && s.address && s.address === split.address,
-      );
-      if (duplicateIndex !== -1 && split.address) {
-        newErrors[`address_${index}`] = "Duplicate wallet address";
-      }
-
-      // Validate percentage
-      const percentage = parseFloat(split.percentage) || 0;
-      if (percentage <= 0) {
-        newErrors[`percentage_${index}`] = "Percentage must be greater than 0";
-      }
-      if (percentage > 100) {
-        newErrors[`percentage_${index}`] = "Percentage cannot exceed 100";
-      }
-
-      totalPercentage += percentage;
-    });
-
-    // Validate total equals 100%
-    if (Math.abs(totalPercentage - 100) > 0.01) {
-      newErrors.total = `Total must equal 100% (currently ${totalPercentage.toFixed(2)}%)`;
-    }
-
-    setErrors(newErrors);
+    const result = validatePayoutSplits(splits);
+    setErrors(result.errors);
 
     // Notify parent component
-    const isValid = Object.keys(newErrors).length === 0;
-    onChange(isValid ? splits : null, isValid);
+    onChange(result.valid ? splits : null, result.valid);
 
-    return isValid;
+    return result.valid;
   }
 
   const handleAddSplit = () => {
@@ -117,10 +78,8 @@ export default function PayoutSplits({ onChange, initialSplits = [] }) {
     setSplits(newSplits);
   };
 
-  const totalPercentage = splits.reduce(
-    (sum, s) => sum + (parseFloat(s.percentage) || 0),
-    0,
-  );
+  const totalBps = Math.round(splits.reduce((sum, s) => sum + (Number(s.percentage) || 0), 0) * 100);
+  const totalPercentage = totalBps / 100;
 
   return (
     <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
@@ -156,7 +115,10 @@ export default function PayoutSplits({ onChange, initialSplits = [] }) {
                     ? "border-red-500"
                     : "border-gray-300"
                 }`}
-              />
+                />
+              <p className="mt-1 text-[11px] text-gray-500">
+                {Math.round((Number(split.percentage) || 0) * 100).toLocaleString()} bps
+              </p>
               {errors[`address_${index}`] && (
                 <p className="text-red-600 text-xs mt-1">
                   {errors[`address_${index}`]}
@@ -196,7 +158,7 @@ export default function PayoutSplits({ onChange, initialSplits = [] }) {
         ))}
       </div>
 
-      <div className="mt-3 pt-3 border-t border-gray-200">
+      <div className="mt-3 pt-3 border-t border-gray-200" aria-live="polite">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">Total:</span>
@@ -207,7 +169,7 @@ export default function PayoutSplits({ onChange, initialSplits = [] }) {
                   : "text-red-600"
               }`}
             >
-              {totalPercentage.toFixed(2)}%
+              {totalPercentage.toFixed(2)}% ({totalBps.toLocaleString()} / {TOTAL_BPS} bps)
             </span>
           </div>
           <button
