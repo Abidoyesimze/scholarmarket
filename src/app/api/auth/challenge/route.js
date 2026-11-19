@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { issueChallenge } from "@/lib/auth/challenge";
 import { normalizeWalletAddress } from "@/lib/api/validation";
 import { withApiHardening } from "@/lib/api/hardening";
+import { badRequest, problemResponse } from "@/lib/api/errorResponse";
 
 export async function GET(request) {
   return withApiHardening(
@@ -19,7 +20,9 @@ export async function GET(request) {
         const contract = searchParams.get("contract");
 
         if (!address) {
-          return NextResponse.json({ error: "Missing or invalid address" }, { status: 400 });
+          return badRequest("Missing or invalid address", [
+            { field: "address", message: "Missing or invalid address" }
+          ], request.url);
         }
 
         const challenge = await issueChallenge(address, {
@@ -30,7 +33,12 @@ export async function GET(request) {
         });
         return NextResponse.json(challenge);
       } catch (error) {
-        return NextResponse.json({ error: "Server error" }, { status: 500 });
+        return problemResponse({
+          status: 500,
+          title: "Internal Server Error",
+          detail: error.message || "Server error",
+          instance: request.url,
+        });
       }
     }
   );

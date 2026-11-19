@@ -27,7 +27,6 @@ export async function apiClient(endpoint, { body, ...customConfig } = {}) {
     
     // Handle successful responses
     if (response.ok) {
-      // Check if response is empty
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
         return await response.json();
@@ -41,14 +40,27 @@ export async function apiClient(endpoint, { body, ...customConfig } = {}) {
     }
 
     let errorData;
+    const contentType = response.headers.get("content-type");
+    
     try {
-      errorData = await response.json();
+      if (contentType && (contentType.includes("application/json") || contentType.includes("application/problem+json"))) {
+        errorData = await response.json();
+      } else {
+        const text = await response.text();
+        errorData = { detail: text || `HTTP error! status: ${response.status}` };
+      }
     } catch (e) {
-      errorData = { error: 'Unknown server error' };
+      errorData = { detail: `HTTP error! status: ${response.status}` };
     }
 
-    const error = new Error(errorData.error || `HTTP error! status: ${response.status}`);
+    // Support both RFC 7807 (detail/title) and legacy formats (error/message)
+    const errorMessage = errorData.detail || errorData.message || errorData.error || `HTTP error! status: ${response.status}`;
+    
+    const error = new Error(errorMessage);
     error.status = response.status;
+    error.title = errorData.title;
+    error.type = errorData.type;
+    error.errors = errorData.errors || []; // Field-level validation errors
     error.data = errorData;
     
     console.error(`API Error [${response.status}] at ${endpoint}:`, error.message);
@@ -62,4 +74,3 @@ export async function apiClient(endpoint, { body, ...customConfig } = {}) {
     throw wrappedError;
   }
 }
-

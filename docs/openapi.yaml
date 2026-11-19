@@ -1,5 +1,4 @@
 openapi: "3.1.0"
-
 info:
   title: ScholarMarket API
   version: "1.0.0"
@@ -7,21 +6,17 @@ info:
     REST API for the ScholarMarket educational content marketplace.
     Provides endpoints for managing materials, purchases, creator analytics,
     marketplace discovery, and checkout flows.
-
     ## Authentication
     All write endpoints require a valid `token` cookie issued by the
     `/api/auth` login flow (HS256 JWT signed with `JWT_SECRET`).
-
     ## Rate Limits
     Most endpoints are rate-limited. Limits vary by route and are applied
     per-user. Check response headers for `X-RateLimit-*` fields.
-
 servers:
   - url: "http://localhost:3000"
     description: Local development
   - url: "https://scholarmarket.vercel.app"
     description: Production (Vercel)
-
 tags:
   - name: Materials
     description: CRUD operations for educational materials (owned by the authenticated user)
@@ -33,10 +28,8 @@ tags:
     description: Creator-specific endpoints for managing materials and viewing analytics
   - name: Checkout
     description: Checkout initiation, tax estimation, and wallet verification
-
 security:
   - cookieAuth: []
-
 components:
   securitySchemes:
     cookieAuth:
@@ -46,12 +39,48 @@ components:
       description: JWT session token set via HTTP-only cookie. Obtained through the authentication flow (POST /api/auth/challenge + POST /api/auth/verify).
 
   schemas:
-    Error:
+    Problem:
       type: object
+      description: RFC 7807 Problem Details for HTTP APIs
+      required:
+        - type
+        - title
+        - status
+        - detail
       properties:
-        error:
+        type:
           type: string
-      required: [error]
+          format: uri
+          default: "about:blank"
+          example: "about:blank"
+        title:
+          type: string
+          example: "Bad Request"
+        status:
+          type: integer
+          example: 400
+        detail:
+          type: string
+          example: "Missing or invalid address"
+        instance:
+          type: string
+          format: uri
+          example: "/api/auth/challenge"
+        errors:
+          type: array
+          description: Optional field-level validation errors
+          items:
+            type: object
+            required:
+              - field
+              - message
+            properties:
+              field:
+                type: string
+                example: "address"
+              message:
+                type: string
+                example: "Missing or invalid address"
 
     Material:
       type: object
@@ -625,41 +654,33 @@ components:
     Unauthorized:
       description: Authentication required
       content:
-        application/json:
+        application/problem+json:
           schema:
-            $ref: "#/components/schemas/Error"
-          example:
-            error: "Unauthorized"
+            $ref: "#/components/schemas/Problem"
     BadRequest:
       description: Invalid request parameters or body
       content:
-        application/json:
+        application/problem+json:
           schema:
-            $ref: "#/components/schemas/Error"
-          example:
-            error: "Missing materialId"
+            $ref: "#/components/schemas/Problem"
     Forbidden:
       description: Insufficient permissions
       content:
-        application/json:
+        application/problem+json:
           schema:
-            $ref: "#/components/schemas/Error"
-          example:
-            error: "Forbidden: not the material owner"
+            $ref: "#/components/schemas/Problem"
     NotFound:
       description: Resource not found
       content:
-        application/json:
+        application/problem+json:
           schema:
-            $ref: "#/components/schemas/Error"
-          example:
-            error: "Material not found"
+            $ref: "#/components/schemas/Problem"
     RateLimited:
       description: Too many requests
       content:
-        application/json:
+        application/problem+json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: "#/components/schemas/Problem"
 
 paths:
   # ---------------------------------------------------------------------------
@@ -695,7 +716,6 @@ paths:
                   updatedAt: "2026-08-01T10:00:00.000Z"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
     post:
       summary: Create a new material
       operationId: createMaterial
@@ -740,7 +760,6 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
     put:
       summary: Update an existing material
       operationId: updateMaterial
@@ -778,7 +797,6 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
-
     patch:
       summary: Partially update an existing material (alias for PUT)
       operationId: patchMaterial
@@ -811,7 +829,6 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
-
     delete:
       summary: Delete a material
       operationId: deleteMaterial
@@ -846,7 +863,6 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
-
   /api/materials/import:
     post:
       summary: Validate or import structured material records
@@ -868,10 +884,6 @@ paths:
                   type: array
                   items:
                     $ref: "#/components/schemas/MaterialImportRecord"
-                items:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/MaterialImportRecord"
       responses:
         "200":
           description: Validation results for a dry run
@@ -889,7 +901,6 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
   # ---------------------------------------------------------------------------
   # Marketplace (public browse)
   # ---------------------------------------------------------------------------
@@ -901,7 +912,6 @@ paths:
       description: |
         Returns all public materials across all creators. Supports pagination,
         search, and filtering. Results are cached for 10 minutes.
-
         Pass a single `id` query param to fetch one material by MongoDB ObjectId.
       security: []
       parameters:
@@ -969,7 +979,10 @@ paths:
                     pageSize: 12
                     total: 50
                     totalPages: 5
-
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   # ---------------------------------------------------------------------------
   # Purchases
   # ---------------------------------------------------------------------------
@@ -988,19 +1001,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Purchase"
-              example:
-                - _id: "665a1b2c3d4e5f6a7b8c9d1e"
-                  materialId: "665a1b2c3d4e5f6a7b8c9d0e"
-                  buyerAddress: "GABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF"
-                  status: "confirmed"
-                  transactionHash: "abc123def456..."
-                  amount: 5.00
-                  asset: "USDC"
-                  purchasedAt: "2026-08-01T12:00:00.000Z"
-                  createdAt: "2026-08-01T11:55:00.000Z"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
     post:
       summary: Purchase a material
       operationId: recordPurchase
@@ -1015,13 +1017,6 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/CreatePurchaseRequest"
-            example:
-              materialId: "665a1b2c3d4e5f6a7b8c9d0e"
-              signedXdr: "AAAAAGf8...signed-transaction-xdr..."
-              transactionHash: "abc123def456789..."
-              email: "learner@example.com"
-              amount: 5.00
-              asset: "USDC"
       responses:
         "200":
           description: Purchase already completed
@@ -1032,11 +1027,8 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "Already purchased"
                   purchase:
                     $ref: "#/components/schemas/Purchase"
-                  transactionHash:
-                    type: string
         "201":
           description: New confirmed purchase
           content:
@@ -1046,13 +1038,10 @@ paths:
                 properties:
                   success:
                     type: boolean
-                    example: true
                   purchaseId:
                     type: string
                   purchase:
                     $ref: "#/components/schemas/Purchase"
-                  access:
-                    type: object
         "202":
           description: Purchase pending payment confirmation
           content:
@@ -1062,18 +1051,14 @@ paths:
                 properties:
                   success:
                     type: boolean
-                    example: false
                   purchaseId:
                     type: string
                   purchase:
                     $ref: "#/components/schemas/Purchase"
-                  access:
-                    type: object
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
   /api/purchased-materials:
     get:
       summary: List purchased materials with metadata
@@ -1091,21 +1076,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/PurchasedMaterial"
-              example:
-                - purchaseId: "665a1b2c3d4e5f6a7b8c9d1e"
-                  materialId: "665a1b2c3d4e5f6a7b8c9d0e"
-                  purchasedAt: "2026-08-01T12:00:00.000Z"
-                  transactionHash: "abc123def456..."
-                  material:
-                    _id: "665a1b2c3d4e5f6a7b8c9d0e"
-                    title: "Introduction to Stellar Consensus"
-                    description: "A comprehensive guide to SCP"
-                    price: 5.00
-                    visibility: "public"
-                    version: 1
         "401":
           $ref: "#/components/responses/Unauthorized"
-
   /api/transactions/history:
     get:
       summary: Aggregate account purchase and Stellar transaction history
@@ -1139,18 +1111,12 @@ paths:
                     type: integer
                   hasMore:
                     type: boolean
-                  totals:
-                    type: object
-                    properties:
-                      purchases:
-                        type: integer
                   records:
                     type: array
                     items:
                       type: object
         "401":
           $ref: "#/components/responses/Unauthorized"
-
   # ---------------------------------------------------------------------------
   # Creators
   # ---------------------------------------------------------------------------
@@ -1167,7 +1133,6 @@ paths:
             type: integer
             default: 1
             minimum: 1
-          description: Page number (1-indexed)
         - name: limit
           in: query
           schema:
@@ -1175,7 +1140,6 @@ paths:
             default: 10
             minimum: 1
             maximum: 50
-          description: Number of items per page (max 50)
       responses:
         "200":
           description: Paginated list of creator materials
@@ -1183,25 +1147,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CreatorMaterialsResponse"
-              example:
-                materials:
-                  - _id: "665a1b2c3d4e5f6a7b8c9d0e"
-                    title: "Introduction to Stellar Consensus"
-                    description: "A comprehensive guide to SCP"
-                    price: 5.00
-                    visibility: "public"
-                    category: "computer-science"
-                    subject: "blockchain"
-                    level: "intermediate"
-                    version: 1
-                    createdAt: "2026-08-01T10:00:00.000Z"
-                total: 1
-                page: 1
-                limit: 10
-                totalPages: 1
         "401":
           $ref: "#/components/responses/Unauthorized"
-
   /api/creator/analytics:
     get:
       summary: Get creator analytics dashboard data
@@ -1217,13 +1164,11 @@ paths:
           schema:
             type: string
             format: date-time
-          description: "Start of date range (ISO 8601). Defaults to 30 days ago."
         - name: to
           in: query
           schema:
             type: string
             format: date-time
-          description: "End of date range (ISO 8601). Defaults to now."
       responses:
         "200":
           description: Creator analytics data
@@ -1231,41 +1176,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CreatorAnalytics"
-              example:
-                totalRevenue: 125.50
-                totalSales: 25
-                monthlySales: 8
-                pendingCount: 2
-                indexingCount: 1
-                uploadCount: 12
-                publishedCount: 10
-                draftCount: 2
-                materialActivity: 156
-                learnerInterest: 42
-                savedCount: 18
-                completedOrders: 25
-                hasActivity: true
-                chartData:
-                  - day: "Mon"
-                    revenue: 15.00
-                    orders: 3
-                    uploads: 1
-                    interest: 5
-                topMaterials:
-                  - id: "665a1b2c3d4e5f6a7b8c9d0e"
-                    name: "Introduction to Stellar Consensus"
-                    sales: 12
-                    revenue: "$60.00"
-                    visibility: "public"
-                    activity: 45
-                recentOrders: []
-                withdrawals: []
-                dateRange:
-                  from: "2026-07-26T00:00:00.000Z"
-                  to: "2026-08-25T23:59:59.000Z"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
   # ---------------------------------------------------------------------------
   # Checkout
   # ---------------------------------------------------------------------------
@@ -1283,23 +1195,19 @@ paths:
           schema:
             type: number
             minimum: 0
-          description: Base purchase amount
         - name: asset
           in: query
           required: true
           schema:
             type: string
-          description: "Payment asset code (e.g. 'USDC')"
         - name: buyerIp
           in: query
           schema:
             type: string
-          description: Buyer IP for geolocation-based tax
         - name: buyerCountry
           in: query
           schema:
             type: string
-          description: ISO country code override
       responses:
         "200":
           description: Tax estimation
@@ -1310,12 +1218,10 @@ paths:
                 properties:
                   success:
                     type: boolean
-                    example: true
                   estimation:
                     $ref: "#/components/schemas/CheckoutEstimation"
         "400":
           $ref: "#/components/responses/BadRequest"
-
     post:
       summary: Initiate a checkout with tax estimation
       operationId: initiateCheckout
@@ -1330,12 +1236,6 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/InitiateCheckoutRequest"
-            example:
-              materialId: "665a1b2c3d4e5f6a7b8c9d0e"
-              amount: 5.00
-              asset: "USDC"
-              buyerCountry: "US"
-              discountCode: "STUDENT20"
       responses:
         "201":
           description: Checkout initiated successfully
@@ -1346,7 +1246,6 @@ paths:
                 properties:
                   success:
                     type: boolean
-                    example: true
                   checkoutId:
                     type: string
                   checkout:
@@ -1372,7 +1271,6 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
   /api/checkout/verify:
     post:
       summary: Verify wallet address matches session
@@ -1392,8 +1290,6 @@ paths:
               properties:
                 payloadAddress:
                   type: string
-                  description: Stellar G-address extracted from the signed payload
-                  example: "GABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF"
       responses:
         "200":
           description: Address verified successfully
@@ -1404,7 +1300,6 @@ paths:
                 properties:
                   valid:
                     type: boolean
-                    example: true
                   address:
                     type: string
         "400":
@@ -1414,15 +1309,6 @@ paths:
         "403":
           description: Wallet address mismatch
           content:
-            application/json:
+            application/problem+json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                  reason:
-                    type: string
-                  warnings:
-                    type: integer
-                  clearSession:
-                    type: boolean
+                $ref: "#/components/schemas/Problem"
