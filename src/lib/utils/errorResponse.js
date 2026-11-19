@@ -20,6 +20,7 @@ export function errorResponse({
   detail = "",
   instance = "",
   type = "about:blank",
+  errors,
 } = {}) {
   const defaultTitles = {
     400: "Bad Request",
@@ -39,10 +40,39 @@ export function errorResponse({
       status,
       detail,
       instance,
+      ...(Array.isArray(errors) ? { errors } : {}),
     },
     {
       status,
       headers: { "Content-Type": "application/problem+json" },
     }
   );
+}
+
+function problem(status, detail, options = {}) {
+  return errorResponse({ status, detail, ...options });
+}
+
+export function badRequest(detail, options = {}) {
+  return problem(400, detail, options);
+}
+
+export function unauthorized(detail = "Authentication is required.", options = {}) {
+  return problem(401, detail, options);
+}
+
+export function forbidden(detail = "You do not have permission to perform this action.", options = {}) {
+  return problem(403, detail, options);
+}
+
+export function notFound(detail = "The requested resource was not found.", options = {}) {
+  return problem(404, detail, options);
+}
+
+export function conflict(detail = "The request conflicts with the current resource state.", options = {}) {
+  return problem(409, detail, options);
+}
+
+export function tooManyRequests(detail = "Too many requests. Please try again later.", options = {}) {
+  return problem(429, detail, options);
 }

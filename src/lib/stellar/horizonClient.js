@@ -1,6 +1,6 @@
 import { Horizon } from '@stellar/stellar-sdk';
-import { HORIZON_URL, isMainnet } from '@/lib/config/chain';
-import logger from '@/lib/logger';
+import { HORIZON_URL, isMainnet } from '../config/chain.js';
+import logger from '../logger.js';
 
 // Primary URL from config; fallback list ordered by preference.
 const PRIMARY_URL = HORIZON_URL;

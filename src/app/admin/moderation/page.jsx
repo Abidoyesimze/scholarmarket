@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import './moderation.css';
 import { withAdminGuard } from '@/lib/auth/adminAuth';
+import useConfirm from '@/hooks/useConfirm';
+import { useToast } from '@/hooks/useToast';
 
 /**
  * Mock fetch for flagged items – in real code this would call the backend.
@@ -19,6 +21,8 @@ const fetchFlagged = async () => {
 function ModerationDashboard() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { confirm, dialog } = useConfirm();
+  const toast = useToast();
 
   useEffect(() => {
     fetchFlagged().then(data => {
@@ -27,9 +31,17 @@ function ModerationDashboard() {
     });
   }, []);
 
-  const handleAction = (id, action) => {
+  const handleAction = async (id, action) => {
+    const confirmed = await confirm({
+      title: `${action} flagged item`,
+      description: `Are you sure you want to ${action.toLowerCase()} item #${id}?`,
+      confirmLabel: action,
+      danger: action !== 'Approve',
+    });
+    if (!confirmed) return;
+
     // In real app, send request to backend with auth
-    alert(`Action "${action}" applied to item #${id}`);
+    toast.show({ title: 'Action applied', message: `Action "${action}" applied to item #${id}`, type: 'success' });
     // Remove item from UI for demo purposes
     setItems(prev => prev.filter(i => i.id !== id));
   };
@@ -38,6 +50,7 @@ function ModerationDashboard() {
 
   return (
     <section className="admin-moderation">
+      {dialog}
       <h2 className="title">Content Moderation Dashboard</h2>
       {items.length === 0 ? (
         <p className="empty">No flagged items at the moment.</p>
