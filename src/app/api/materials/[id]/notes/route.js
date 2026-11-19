@@ -21,7 +21,7 @@ export async function GET(request, { params }) {
     request,
     { route: "materials.notes", rateLimit: { limit: 60, windowMs: 60_000 } },
     async () => {
-      const materialId = params?.id;
+      const materialId = (await params)?.id;
       if (!materialId || !ObjectId.isValid(materialId)) {
         return NextResponse.json({ error: "Invalid material ID" }, { status: 400 });
       }
@@ -59,7 +59,7 @@ export async function PUT(request, { params }) {
     request,
     { route: "materials.notes", rateLimit: { limit: 30, windowMs: 60_000 } },
     async () => {
-      const materialId = params?.id;
+      const materialId = (await params)?.id;
       if (!materialId || !ObjectId.isValid(materialId)) {
         return NextResponse.json({ error: "Invalid material ID" }, { status: 400 });
       }

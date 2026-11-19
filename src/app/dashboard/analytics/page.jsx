@@ -2,8 +2,10 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
+import { useCreatorAnalytics } from "@/hooks/api/useProfile";
+import { ErrorMessage } from "@/components/common/QueryStateProvider";
 import {
   FiArrowUpRight as ArrowUpRight,
   FiBarChart2 as BarChart,
@@ -195,28 +197,10 @@ function ActivityChart({ data }) {
 }
 
 export default function AnalyticsPage() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    async function fetchAnalytics() {
-      try {
-        const res = await fetch("/api/creator/analytics");
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error ?? `Request failed (${res.status})`);
-        }
-        setData(await res.json());
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchAnalytics();
-  }, []);
+  const analyticsQuery = useCreatorAnalytics();
+  const data = analyticsQuery.data ?? null;
+  const loading = analyticsQuery.isLoading;
+  const error = analyticsQuery.error?.message ?? null;
 
   const chartData = data?.chartData?.length ? data.chartData : EMPTY_CHART;
   const topMaterials = data?.topMaterials ?? [];
@@ -275,11 +259,7 @@ export default function AnalyticsPage() {
         </Link>
       </div>
 
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
+      {error && <ErrorMessage message={error} retry={() => analyticsQuery.refetch()} />}
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {loading
