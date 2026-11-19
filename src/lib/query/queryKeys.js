@@ -5,6 +5,7 @@ export const queryKeys = {
     trending: (params) => ['materials', 'trending', params],
     detail: (id) => ['materials', 'detail', id],
     feedback: (id) => ['materials', 'feedback', id],
+    notes: (id) => ['materials', 'notes', id],
     user: (address) => ['materials', 'user', address],
     saved: (address) => ['materials', 'saved', address],
   },
@@ -17,11 +18,22 @@ export const queryKeys = {
   purchases: {
     all: ['purchases'],
     history: (address) => ['purchases', 'history', address],
+    library: () => ['purchases', 'library'],
     entitlement: (materialId, address) => ['purchases', 'entitlement', materialId, address],
   },
   dashboard: {
+    all: ['dashboard'],
     stats: (address) => ['dashboard', 'stats', address],
     metrics: (address, timeframe) => ['dashboard', 'metrics', address, timeframe],
-  }
+    creatorAnalytics: () => ['dashboard', 'creator-analytics'],
+    learningProgress: () => ['dashboard', 'learning-progress'],
+  },
+  taxonomy: {
+    all: ['taxonomy'],
+    subjects: () => ['taxonomy', 'subjects'],
+  },
+  admin: {
+    all: ['admin'],
+    moderation: () => ['admin', 'moderation'],
+  },
 };
-
