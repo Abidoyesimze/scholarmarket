@@ -1,6 +1,13 @@
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
-export default function Pagination({ page, totalPages, onPageChange }) {
+export default function Pagination({
+  page,
+  totalPages,
+  onPageChange,
+  pageSize,
+  pageSizeOptions = [12, 24, 48],
+  onPageSizeChange,
+}) {
   if (!totalPages || totalPages <= 1) return null;
 
   const pages = [];
@@ -28,7 +35,22 @@ export default function Pagination({ page, totalPages, onPageChange }) {
   }
 
   return (
-    <nav aria-label="Pagination" className="mt-8 flex items-center justify-center gap-2">
+    <nav aria-label="Pagination" className="mt-8 flex flex-wrap items-center justify-center gap-2">
+      {onPageSizeChange ? (
+        <label className="mr-2 flex items-center gap-2 text-sm text-slate-600">
+          <span>Items per page</span>
+          <select
+            value={pageSize}
+            onChange={(event) => onPageSizeChange(Number(event.target.value))}
+            aria-label="Items per page"
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5"
+          >
+            {pageSizeOptions.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <button
         type="button"
         onClick={() => onPageChange(Math.max(1, page - 1))}
