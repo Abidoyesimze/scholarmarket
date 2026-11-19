@@ -29,16 +29,20 @@ const heartbeatFrequencyMS = parseInt(
 const globalForMongo = globalThis;
 
 function getClientPromise() {
-  if (!uri) {
+  // Reuse the client across hot reloads in dev, or when pre-configured in tests.
+  if (globalForMongo._mongoClientPromise) {
+    return globalForMongo._mongoClientPromise;
+  }
+
+  const connectionUri = uri || process.env.MONGODB_URI;
+  if (!connectionUri) {
     const errorMsg = "MONGODB_URI is not set in environment variables";
     console.error(`[Database Error]: ${errorMsg}`);
     throw new Error(errorMsg);
   }
 
-  // Reuse the client across hot reloads in dev, but only connect on demand.
-  if (!globalForMongo._mongoClientPromise) {
-    try {
-      const client = new MongoClient(uri, {
+  try {
+    const client = new MongoClient(connectionUri, {
         maxPoolSize,
         minPoolSize,
         serverSelectionTimeoutMS,
@@ -62,7 +66,6 @@ function getClientPromise() {
       );
       throw error;
     }
-  }
 
   return globalForMongo._mongoClientPromise;
 }

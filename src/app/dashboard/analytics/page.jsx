@@ -16,6 +16,7 @@ import {
   FiUpload as Upload,
   FiUsers as Users,
 } from "react-icons/fi";
+import EmptyState from "@/components/common/EmptyState";
 
 function buildEmptyChart(days = 30) {
   const rows = [];
@@ -70,24 +71,22 @@ function StatCard({ title, value, sub, icon: Icon, color }) {
   );
 }
 
-function EmptyState() {
+function EducatorEmptyState() {
   return (
-    <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center shadow-sm">
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-        <BarChart size={24} />
-      </div>
-      <h2 className="text-lg font-semibold text-gray-900">No educator activity yet</h2>
-      <p className="mx-auto mt-2 max-w-md text-sm text-gray-500">
-        Upload a material and learner activity will appear here as saves, access requests, and completed orders come in.
-      </p>
-      <Link
-        href="/dashboard/upload"
-        className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
-      >
-        <Upload size={16} />
-        Upload Material
-      </Link>
-    </div>
+    <EmptyState
+      icon={<BarChart size={24} />}
+      title="No educator activity yet"
+      description="Upload a material and learner activity will appear here as saves, access requests, and completed orders come in."
+      primaryAction={{
+        label: "Upload Material",
+        href: "/dashboard/upload",
+        icon: <Upload size={16} />,
+      }}
+      secondaryAction={{
+        label: "Browse Marketplace",
+        href: "/marketplace",
+      }}
+    />
   );
 }
 
@@ -268,7 +267,7 @@ export default function AnalyticsPage() {
           : cards.map((card) => <StatCard key={card.title} {...card} />)}
       </div>
 
-      {!loading && !error && !hasActivity && <EmptyState />}
+      {!loading && !error && !hasActivity && <EducatorEmptyState />}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
         <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">

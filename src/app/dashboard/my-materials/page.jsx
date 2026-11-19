@@ -5,6 +5,9 @@ import { useWallet } from "@/hooks/useWallet";
 import { useUserMaterials, useUpdateMaterial } from "@/hooks/api/useMaterials";
 import { FaEdit, FaSave, FaTimes, FaSpinner, FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import ResourceStatusBadge from "@/components/materials/ResourceStatusBadge";
+import { EDITABLE_MATERIAL_FIELDS, IMMUTABLE_MATERIAL_FIELDS } from "@/lib/backend/schemaContracts";
+import Image from "next/image";
+import EmptyState from "@/components/common/EmptyState";
 import { IMMUTABLE_MATERIAL_FIELDS } from "@/lib/backend/schemaContracts";
 import { QueryStateProvider, ErrorMessage } from "@/components/common/QueryStateProvider";
 import Image from "next/image";
@@ -184,11 +187,14 @@ export default function MyMaterialsPage() {
 
   if (!address) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <p className="text-gray-600 text-sm">
-          Connect your wallet to view your uploaded materials.
-        </p>
-      </div>
+      <EmptyState
+        title="Connect your wallet"
+        description="Connect your wallet to view and manage your uploaded materials."
+        primaryAction={{
+          label: "Browse Marketplace",
+          href: "/marketplace",
+        }}
+      />
     );
   }
 
@@ -201,6 +207,58 @@ export default function MyMaterialsPage() {
         </p>
       </div>
 
+      {isLoading && (
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse">
+              <div className="h-32 bg-gray-200 rounded-lg mb-4" />
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
+              <div className="h-3 bg-gray-200 rounded w-1/2 mb-4" />
+              <div className="h-8 bg-gray-200 rounded-lg w-full" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {queryError && (
+        <EmptyState
+          variant="error"
+          title="Failed to load materials"
+          description={queryError.message}
+          primaryAction={{
+            label: "Try again",
+            onClick: () => window.location.reload(),
+          }}
+          secondaryAction={{
+            label: "Browse Marketplace",
+            href: "/marketplace",
+          }}
+        />
+      )}
+
+      {!isLoading && !queryError && materials?.length === 0 && (
+        <EmptyState
+          icon={<FaEdit className="text-blue-500 text-2xl" />}
+          title="No materials yet"
+          description="Upload your first educational material to start sharing with the community."
+          primaryAction={{
+            label: "Upload Material",
+            href: "/dashboard/upload",
+            icon: <FaEdit size={14} />,
+          }}
+          secondaryAction={{
+            label: "Browse Marketplace",
+            href: "/marketplace",
+          }}
+        />
+      )}
+
+      {materials?.length > 0 && (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {materials.map((material) => (
+            <div
+              key={material._id}
+              className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow flex flex-col"
       <QueryStateProvider
         query={materialsQuery}
         loadingComponent={
