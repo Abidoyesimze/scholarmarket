@@ -82,7 +82,9 @@ export function useSavedMaterials() {
       return items;
     },
     enabled: !!address,
-    initialData: [],
+    // placeholderData (not initialData): an initial [] would be cached as
+    // fresh for staleTime, so a full page load would skip the fetch entirely.
+    placeholderData: [],
     staleTime: 30 * 1000,
   });
 

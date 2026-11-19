@@ -207,6 +207,16 @@ pub struct MaterialStatusChangedEvent {
     pub status: MaterialStatus,
 }
 
+#[contractevent(topics = ["material", "delisted"], data_format = "vec")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MaterialDelistedEvent {
+    #[topic]
+    pub material_id: BytesN<32>,
+    #[topic]
+    pub actor: Address,
+    pub reason_code: u32,
+}
+
 /// Emitted when the upgrade-admin updates the approved-asset allowlist.
 #[contractevent(topics = ["asset", "policy_updated"], data_format = "vec")]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -423,6 +433,40 @@ impl MaterialRegistry {
             status: next_status,
         }
         .publish(&env);
+        Ok(())
+    }
+
+    pub fn delist(
+        env: Env,
+        actor: Address,
+        material_id: BytesN<32>,
+        reason_code: u32,
+    ) -> Result<(), RegistryError> {
+        let record = get_material_record(&env, &material_id)?;
+        require_creator_or_upgrade_admin(&env, &record.creator, &actor)?;
+
+        let mut updated_record = record.clone();
+        updated_record.status = MaterialStatus::Archived;
+        updated_record.paused = true;
+        updated_record.updated_ledger = env.ledger().sequence();
+
+        put_material_sale(&env, &material_id, &sale_state_from_record(&updated_record));
+
+        MaterialDelistedEvent {
+            material_id: material_id.clone(),
+            actor: actor.clone(),
+            reason_code,
+        }
+        .publish(&env);
+
+        MaterialStatusChangedEvent {
+            material_id,
+            creator: record.creator,
+            paused: true,
+            status: MaterialStatus::Archived,
+        }
+        .publish(&env);
+
         Ok(())
     }
 

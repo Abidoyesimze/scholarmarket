@@ -16,7 +16,7 @@ import {
   FaExclamationTriangle 
 } from "react-icons/fa";
 import { useWallet } from "@/hooks/useWallet";
-import { useCreateMaterial, useUploadFile } from "@/hooks/api/useMaterials";
+import { useCreateMaterial, useSubjects, useUploadFile } from "@/hooks/api/useMaterials";
 import TransactionStatusPanel from "@/components/transactions/TransactionStatusPanel";
 import { useTransactionCenter } from "@/providers/TransactionProvider";
 import { TransactionStatus } from "@/lib/transactions/transaction";
@@ -62,9 +62,10 @@ export default function UploadWizard() {
   const [thumbFile, setThumbFile] = useState(null);
   const [thumbPreview, setThumbPreview] = useState(null);
 
-  // Taxonomy state
-  const [categories, setCategories] = useState([]);
-  const [taxonomySubjects, setTaxonomySubjects] = useState([]);
+  // Taxonomy (non-critical — dropdowns stay empty if it fails to load)
+  const { data: taxonomy } = useSubjects();
+  const categories = taxonomy?.categories || [];
+  const taxonomySubjects = taxonomy?.subjects || [];
 
   // Workflow state
   const [workflowState, setWorkflowState] = useState("idle"); // idle | uploading | minting | success | failed
@@ -79,22 +80,6 @@ export default function UploadWizard() {
   const createMaterialMutation = useCreateMaterial();
 
   const chainMismatch = false;
-
-  useEffect(() => {
-    async function loadTaxonomy() {
-      try {
-        const res = await fetch("/api/subjects");
-        if (res.ok) {
-          const data = await res.json();
-          setCategories(data.categories || []);
-          setTaxonomySubjects(data.subjects || []);
-        }
-      } catch {
-        // Non-critical — dropdowns stay empty
-      }
-    }
-    loadTaxonomy();
-  }, []);
 
   const handleDocChange = (e) => {
     const file = e.target.files?.[0];
