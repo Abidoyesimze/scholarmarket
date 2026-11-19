@@ -28,6 +28,8 @@
     "test:backend": "node --test tests/backend/*.test.mjs",
     "test:visual": "playwright test test/visual",
     "test:visual:debug": "playwright test --debug test/visual",
+    "test:e2e": "playwright test --config playwright.config.ts --project=chromium",
+    "test:e2e:flows": "playwright test --config playwright.config.ts --project=chromium tests/e2e/learner-journey.spec.ts tests/e2e/admin-moderation.spec.ts",
     "test:coverage": "vitest run --coverage",
     "load:k6": "k6 run tests/load/materials-search.k6.js",
     "load:artillery": "artillery run tests/load/materials-search.yml",
@@ -68,6 +70,7 @@
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.1.2",
+    "@playwright/test": "^1.45.0",
     "@tailwindcss/postcss": "^4.2.3",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
