@@ -39,6 +39,18 @@ const EVENT_PARSERS = {
     asset: data[1] ?? null,
     amount: data[2] != null ? String(data[2]) : null,
   }),
+  // PurchaseRefundedEvent (purchase-manager): topics = ["purchase",
+  // "refunded", purchase_id, material_id, buyer]; data = [asset,
+  // refund_amount, entitlement_revoked]
+  "purchase.refunded": (topics, data) => ({
+    type: "purchase.refunded",
+    purchaseId: topics[2] != null ? String(topics[2]) : null,
+    materialId: bytesToHex(topics[3]),
+    buyerAddress: topics[4],
+    asset: data[0] ?? null,
+    refundAmount: data[1] != null ? String(data[1]) : null,
+    entitlementRevoked: data[2] !== false,
+  }),
   // MaterialRegisteredEvent (material-registry): topics = ["material",
   // "registered", material_id, creator]
   "material.registered": (topics) => ({

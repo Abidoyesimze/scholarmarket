@@ -1,6 +1,8 @@
-import { getDb } from '@/lib/mongodb';
-import { PURCHASE_MANAGER_CONTRACT_ID, STELLAR_RPC_URL } from '@/lib/config/chain';
-import { isCompletedPurchaseStatus, normalizeBuyerAddress } from '@/lib/purchases/access';
+// Relative imports so the standalone indexer script (plain Node, no `@/` alias)
+// can load this module for refund revocation.
+import { getDb } from './mongodb.js';
+import { PURCHASE_MANAGER_CONTRACT_ID, STELLAR_RPC_URL } from './config/chain.js';
+import { isCompletedPurchaseStatus, normalizeBuyerAddress } from './purchases/access.js';
 
 async function getCachedEntitlement(db, materialId, buyerAddress) {
   return db.collection('entitlement_cache').findOne({
@@ -196,6 +198,67 @@ export async function revokeEntitlement(materialId, buyerAddress) {
   );
 
   return { success: true };
+}
+
+/**
+ * Revoke an entitlement in response to an on-chain `purchase.refunded` event.
+ *
+ * Idempotent: the refund event id is recorded on the cache entry, so replaying
+ * the same ledger range leaves the entry untouched and reports
+ * `alreadyApplied: true`, letting callers skip downstream side effects
+ * (e.g. the refund email).
+ *
+ * @param {object} db - MongoDB database instance
+ * @param {object} refund
+ * @param {string} refund.materialId - The material identifier
+ * @param {string} refund.buyerAddress - The buyer's Stellar public key
+ * @param {string} refund.refundEventId - Stable id of the refund event
+ * @param {string|null} [refund.purchaseId] - On-chain purchase id
+ * @param {string|null} [refund.transactionHash] - Refund transaction hash
+ * @param {Date} [refund.now]
+ * @returns {Promise<{success: boolean, alreadyApplied: boolean}>}
+ */
+export async function revokeEntitlementForRefund(db, {
+  materialId,
+  buyerAddress,
+  refundEventId,
+  purchaseId = null,
+  transactionHash = null,
+  now = new Date(),
+}) {
+  if (!materialId || !buyerAddress || !refundEventId) {
+    return { success: false, alreadyApplied: false };
+  }
+
+  const normalised = buyerAddress.toLowerCase();
+  const collection = db.collection('entitlement_cache');
+  const existing = await collection.findOne({ materialId, buyerAddress: normalised });
+
+  if (existing && existing.refundEventId === refundEventId && existing.active === false) {
+    return { success: true, alreadyApplied: true };
+  }
+
+  await collection.updateOne(
+    { materialId, buyerAddress: normalised },
+    {
+      $set: {
+        materialId,
+        buyerAddress: normalised,
+        active: false,
+        source: 'chain-refunded',
+        settlementState: 'Refunded',
+        refundEventId,
+        refundPurchaseId: purchaseId,
+        refundTxHash: transactionHash,
+        revokedAt: now,
+        updatedAt: now,
+      },
+      $setOnInsert: { createdAt: now },
+    },
+    { upsert: true }
+  );
+
+  return { success: true, alreadyApplied: false };
 }
 
 export async function verifyEntitlement(materialId, buyerAddress) {
