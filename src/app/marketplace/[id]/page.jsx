@@ -31,7 +31,7 @@ import { trackRecentlyViewed } from "@/hooks/useRecentlyViewed";
 import RecommendedMaterials from "@/components/materials/RecommendedMaterials";
 import MaterialReviewPanel from "@/components/materials/MaterialReviewPanel";
 import LearnerNotes from "@/components/materials/LearnerNotes";
-import { useAccount } from "wagmi";
+import { useWallet } from "@/hooks/useWallet";
 
 const FALLBACK_IMAGE = "/images/image2.jpg";
 
@@ -565,7 +565,7 @@ export default function MaterialDetailsPage() {
 	const [history, setHistory] = useState([]);
 	const materialQuery = useMaterialDetail(id);
 	const entitlementQuery = useEntitlement(id);
-	const { address } = useAccount();
+	const { address } = useWallet();
 	const [downloadError, setDownloadError] = useState(null);
 	const [isDownloading, setIsDownloading] = useState(false);
 
