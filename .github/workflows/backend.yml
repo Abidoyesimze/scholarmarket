@@ -79,7 +79,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps --no-audit --no-fund
 
       - name: Check OpenAPI coverage
         run: node scripts/check-openapi-coverage.mjs

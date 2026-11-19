@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   FaExchangeAlt,
   FaFilePdf,
@@ -34,6 +34,7 @@ import ResourceStatusBadge from "@/components/materials/ResourceStatusBadge";
 import { useMarketplaceMaterials } from "@/hooks/api/useMaterials";
 import { useCart } from "@/hooks/useCart";
 import { useComparison } from "@/hooks/useComparison";
+import { useUrlState } from "@/hooks/useUrlState";
 
 export const dynamic = "force-dynamic";
 
@@ -117,7 +118,7 @@ function getFeedbackCount(material) {
 export default function MarketPage() {
   const { addToCart, cartItems } = useCart();
   const { addToComparison, comparedItems } = useComparison();
-  const router = useRouter();
+  const { searchParams, replaceState } = useUrlState();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
@@ -132,29 +133,27 @@ export default function MarketPage() {
   const [creator, setCreator] = useState("");
   const [usageRights, setUsageRights] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
   const [hydrated, setHydrated] = useState(false);
   const [subjects, setSubjects] = useState(["All"]);
   const [categories, setCategories] = useState([]);
   const [subjectsLoading, setSubjectsLoading] = useState(true);
 
-  const itemsPerPage = 12;
-
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-
-    setSearchQuery(params.get("search") || "");
-    setActiveSubject(params.get("subject") || "All");
-    setActiveCategory(params.get("category") || "All");
-    setActiveLevel(params.get("level") || "");
-    setFormatFilter(params.get("format") || "");
-    setSortBy(params.get("sortBy") || "Popular");
-    setMinPrice(params.get("minPrice") || "");
-    setMaxPrice(params.get("maxPrice") || "");
-    setCreator(params.get("creator") || "");
-    setUsageRights(params.get("usageRights") || "");
-    setCurrentPage(Number(params.get("page") || 1));
+    setSearchQuery(searchParams.get("search") || "");
+    setActiveSubject(searchParams.get("subject") || "All");
+    setActiveCategory(searchParams.get("category") || "All");
+    setActiveLevel(searchParams.get("level") || "");
+    setFormatFilter(searchParams.get("format") || "");
+    setSortBy(searchParams.get("sortBy") || "Popular");
+    setMinPrice(searchParams.get("minPrice") || "");
+    setMaxPrice(searchParams.get("maxPrice") || "");
+    setCreator(searchParams.get("creator") || "");
+    setUsageRights(searchParams.get("usageRights") || "");
+    setCurrentPage(Math.max(1, Number(searchParams.get("page") || 1)));
+    setItemsPerPage([12, 24, 48].includes(Number(searchParams.get("pageSize"))) ? Number(searchParams.get("pageSize")) : 12);
     setHydrated(true);
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     const trimmed = searchQuery.trim();
@@ -216,22 +215,22 @@ export default function MarketPage() {
   useEffect(() => {
     if (!hydrated) return;
 
-    const params = new URLSearchParams();
-
-    if (searchQuery) params.set("search", searchQuery);
-    if (activeSubject && activeSubject !== "All") params.set("subject", activeSubject);
-    if (activeCategory !== "All") params.set("category", activeCategory);
-    if (activeLevel) params.set("level", activeLevel);
-    if (formatFilter) params.set("format", formatFilter);
-    if (sortBy && sortBy !== "Popular") params.set("sortBy", sortBy);
-    if (minPrice) params.set("minPrice", minPrice);
-    if (maxPrice) params.set("maxPrice", maxPrice);
-    if (creator) params.set("creator", creator);
-    if (usageRights) params.set("usageRights", usageRights);
-    if (currentPage > 1) params.set("page", String(currentPage));
-
-    router.replace(`/marketplace?${params.toString()}`);
-  }, [hydrated, searchQuery, activeSubject, activeCategory, activeLevel, formatFilter, sortBy, minPrice, maxPrice, creator, usageRights, currentPage, router]);
+    const timeoutId = window.setTimeout(() => replaceState("/marketplace", {
+      search: searchQuery,
+      subject: activeSubject !== "All" ? activeSubject : "",
+      category: activeCategory !== "All" ? activeCategory : "",
+      level: activeLevel,
+      format: formatFilter,
+      sortBy: sortBy !== "Popular" ? sortBy : "",
+      minPrice,
+      maxPrice,
+      creator,
+      usageRights,
+      page: currentPage > 1 ? currentPage : "",
+      pageSize: itemsPerPage !== 12 ? itemsPerPage : "",
+    }), 300);
+    return () => window.clearTimeout(timeoutId);
+  }, [hydrated, searchQuery, activeSubject, activeCategory, activeLevel, formatFilter, sortBy, minPrice, maxPrice, creator, usageRights, currentPage, itemsPerPage, replaceState]);
 
   const { data, isLoading, isError, error } = useMarketplaceMaterials({
     search: searchQuery,
@@ -398,7 +397,7 @@ export default function MarketPage() {
           )}
         </aside>
 
-        <main className="flex-1 px-4 md:px-8 py-8 md:py-10 overflow-x-hidden">
+        <main id="main" tabIndex={-1} className="flex-1 px-4 md:px-8 py-8 md:py-10 overflow-x-hidden focus:outline-none">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -720,7 +719,16 @@ export default function MarketPage() {
               </motion.div>
 
               {totalPages > 1 && (
-                <Pagination page={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+                <Pagination
+                  page={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  pageSize={itemsPerPage}
+                  onPageSizeChange={(size) => {
+                    setItemsPerPage(size);
+                    setCurrentPage(1);
+                  }}
+                />
               )}
             </>
           )}

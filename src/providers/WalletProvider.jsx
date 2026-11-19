@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { KitEventType, StellarWalletsKit } from '@creit-tech/stellar-wallets-kit';
 
-import { ensureKitInitialized, NETWORK_PASSPHRASE } from '@/lib/wallet/kit';
+import { ensureKitInitialized, NETWORK_PASSPHRASE, readWalletNetwork } from '@/lib/wallet/kit';
 import { fetchBalances, BalancesStatus } from '@/lib/wallet/balance';
 
 export const WalletStatus = Object.freeze({
@@ -169,9 +169,10 @@ export function WalletProvider({ children }) {
         }
 
         if (address) {
+          const walletPassphrase = persisted?.passphrase ?? NETWORK_PASSPHRASE;
           const session = {
             address,
-            network: { passphrase: NETWORK_PASSPHRASE },
+            network: { passphrase: walletPassphrase },
             walletId: persisted?.walletId ?? lastWalletIdRef.current,
           };
           setState({
@@ -225,6 +226,7 @@ export function WalletProvider({ children }) {
           setState({
             status: WalletStatus.Unsupported,
             reason: 'wrong-network',
+            address,
             actualPassphrase: networkPassphrase,
           });
           return;
@@ -271,14 +273,27 @@ export function WalletProvider({ children }) {
 
     setState({ status: WalletStatus.Connecting });
     try {
-      const { address } = getE2EMockAddress()
-        ? { address: getE2EMockAddress() }
-        : await StellarWalletsKit.authModal();
+        const { address } = getE2EMockAddress()
+          ? { address: getE2EMockAddress() }
+          : await StellarWalletsKit.authModal();
 
       if (address) {
+        const walletPassphrase = getE2EMockAddress()
+          ? NETWORK_PASSPHRASE
+          : (await readWalletNetwork()) ?? NETWORK_PASSPHRASE;
+        if (walletPassphrase !== NETWORK_PASSPHRASE) {
+          setState({
+            status: WalletStatus.Unsupported,
+            reason: 'wrong-network',
+            address,
+            actualPassphrase: walletPassphrase,
+            walletId: lastWalletIdRef.current,
+          });
+          return;
+        }
         const session = {
           address,
-          network: { passphrase: NETWORK_PASSPHRASE },
+          network: { passphrase: walletPassphrase },
           walletId: lastWalletIdRef.current,
         };
         setState({
@@ -360,6 +375,7 @@ export function WalletProvider({ children }) {
       : state.status === WalletStatus.Unsupported
         ? state.actualPassphrase ?? null
         : null;
+  const walletId = state.session?.walletId ?? state.walletId ?? null;
 
   const value = useMemo(() => {
     const isConnected = state.status === WalletStatus.Connected;
@@ -370,10 +386,13 @@ export function WalletProvider({ children }) {
       signTransaction,
       signAuthEntry,
       isConnected,
-      address: isConnected ? state.session.address : null,
+      address: isConnected || state.status === WalletStatus.Unsupported
+        ? state.session?.address ?? state.address ?? null
+        : null,
       balances: balancesState,
       refreshBalances,
       networkPassphrase,
+      walletId,
     };
   }, [
     state,

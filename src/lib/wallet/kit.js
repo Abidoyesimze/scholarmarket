@@ -16,5 +16,11 @@ export function ensureKitInitialized() {
   initialized = true;
 }
 
+export async function readWalletNetwork() {
+  ensureKitInitialized();
+  const result = await StellarWalletsKit.getAddress();
+  return result?.networkPassphrase ?? null;
+}
+
 export { StellarWalletsKit };
 export { NETWORK_PASSPHRASE };
