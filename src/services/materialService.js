@@ -2,7 +2,11 @@ import { apiClient } from '@/lib/api/apiClient';
 
 export const materialService = {
   getMarketplaceMaterials: async (params = {}) => {
-    const searchParams = new URLSearchParams(params);
+    // Drop unset filters — URLSearchParams would otherwise send the literal
+    // string "undefined", which the API treats as a real filter value.
+    const searchParams = new URLSearchParams(
+      Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== '')
+    );
     return apiClient(`/api/market-materials?${searchParams.toString()}`);
   },
 
@@ -32,6 +36,18 @@ export const materialService = {
 
   getDownloadUrl: async (id) => {
     return apiClient(`/api/materials/download/${id}`);
+  },
+
+  getSubjects: async () => {
+    return apiClient('/api/subjects');
+  },
+
+  getNote: async (id) => {
+    return apiClient(`/api/materials/${id}/notes`);
+  },
+
+  saveNote: async (id, note) => {
+    return apiClient(`/api/materials/${id}/notes`, { method: 'PUT', body: { note } });
   },
 
   updateMaterial: async (id, updateData) => {

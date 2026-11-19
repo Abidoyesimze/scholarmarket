@@ -5,6 +5,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { verifyAdminAuth } from "@/lib/auth/adminAuth";
+import { auditLog } from "@/lib/api/audit";
 
 export async function GET(request) {
   try {
@@ -59,6 +60,16 @@ export async function PATCH(request) {
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: "Dispute not found" }, { status: 404 });
     }
+
+    auditLog({
+      event: "admin_dispute_resolved",
+      route: "admin/disputes",
+      method: "PATCH",
+      status: 200,
+      actor: user.sub || user.walletAddress,
+      disputeId,
+      newStatus: status,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

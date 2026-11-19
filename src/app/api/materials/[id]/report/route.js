@@ -20,7 +20,7 @@ export async function POST(request, { params }) {
     { route: "materials.report", rateLimit: { limit: 10, windowMs: 60_000 } },
     async () => {
       try {
-        const materialId = params?.id;
+        const materialId = (await params)?.id;
         if (!materialId || !ObjectId.isValid(materialId)) {
           return NextResponse.json({ error: "Invalid material ID" }, { status: 400 });
         }

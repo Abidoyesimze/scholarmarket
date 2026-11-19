@@ -90,3 +90,28 @@ export function useDashboardStats() {
   });
 }
 
+/**
+ * Fetches revenue, sales and learner-interest analytics for the authenticated creator.
+ *
+ * @returns {object} A react-query result containing the creator analytics payload.
+ */
+export function useCreatorAnalytics() {
+  return useQuery({
+    queryKey: queryKeys.dashboard.creatorAnalytics(),
+    queryFn: () => profileService.getCreatorAnalytics(),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Fetches the learner's completed-resource progress records.
+ *
+ * @returns {object} A react-query result containing an array of progress entries.
+ */
+export function useLearningProgress() {
+  return useQuery({
+    queryKey: queryKeys.dashboard.learningProgress(),
+    queryFn: () => profileService.getLearningProgress(),
+    staleTime: 5 * 60 * 1000,
+  });
+}

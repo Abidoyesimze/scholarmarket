@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
-import { getUserFromCookie } from '@/lib/api/auth';
+import { verifyAdminAuth } from '@/lib/auth/adminAuth';
 import { approveRefundOnChain } from '@/lib/stellar/refundService';
 import { auditLog } from '@/lib/api/audit';
 import { ObjectId } from 'mongodb';
@@ -8,12 +8,11 @@ import { ObjectId } from 'mongodb';
 import { logger } from "@/lib/logger";
 export async function POST(request) {
   try {
-    const user = await getUserFromCookie(request);
-    
-    // Verify admin permissions
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized. Admin access required.' }, { status: 403 });
+    const auth = await verifyAdminAuth(request);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
+    const user = auth.user;
 
     const body = await request.json();
     const { refundId } = body;

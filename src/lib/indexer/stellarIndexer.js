@@ -1,6 +1,8 @@
 import { COLLECTIONS } from "../backend/schemaContracts.js";
 import { sendReceiptIfEligible } from "../email.js";
 import { parseContractEvent } from "./eventParser.js";
+import { revokeEntitlementForRefund } from "../entitlement.js";
+import { logger } from "../logger.js";
 
 
 function duplicateKey(error) {
@@ -17,7 +19,7 @@ export function eventId(event) {
   );
 }
 
-export async function applyIndexedEvent(db, event, { now = new Date() } = {}) {
+export async function applyIndexedEvent(db, event, { now = new Date(), enqueue = defaultEnqueue } = {}) {
   const id = eventId(event);
   if (!id) {
     throw new Error("Indexed event is missing a stable id");
@@ -64,6 +66,20 @@ export async function applyIndexedEvent(db, event, { now = new Date() } = {}) {
 
   if (event.type === "purchase.completed") {
     const buyerAddress = String(event.buyerAddress || "").toLowerCase();
+    const existingPurchase = await db.collection(COLLECTIONS.purchases).findOne({
+      materialId: event.materialId,
+      buyerAddress,
+    });
+    // On replay, a completion event for a purchase that was later refunded
+    // must not re-grant access.
+    if (
+      existingPurchase?.status === "refunded" &&
+      event.purchaseId != null &&
+      existingPurchase.refundedChainPurchaseId === event.purchaseId
+    ) {
+      return { eventId: id, skipped: !!alreadyIndexed };
+    }
+
     await db.collection(COLLECTIONS.purchases).updateOne(
       { materialId: event.materialId, buyerAddress },
       {
@@ -72,6 +88,7 @@ export async function applyIndexedEvent(db, event, { now = new Date() } = {}) {
           buyerAddress,
           sellerAddress: event.sellerAddress || null,
           chainTxHash: event.transactionHash || event.txHash || null,
+          chainPurchaseId: event.purchaseId ?? null,
           amount: event.amount || null,
           asset: event.asset || null,
           status: "settled",
@@ -116,10 +133,78 @@ export async function applyIndexedEvent(db, event, { now = new Date() } = {}) {
     }
   }
 
+  if (event.type === "purchase.refunded") {
+    await applyRefundEvent(db, event, id, { now, enqueue });
+  }
+
   return { eventId: id, skipped: !!alreadyIndexed };
 }
 
-export async function runIndexerBatch({ db, eventSource, source = "stellar", limit = 100 }) {
+async function defaultEnqueue(entry) {
+  const { enqueueSideEffect } = await import("../backend/outbox.js");
+  return enqueueSideEffect(entry);
+}
+
+async function applyRefundEvent(db, event, refundEventId, { now, enqueue }) {
+  const buyerAddress = String(event.buyerAddress || "").toLowerCase();
+  if (!event.materialId || !buyerAddress) {
+    throw new Error("purchase.refunded event is missing materialId or buyerAddress");
+  }
+
+  const { alreadyApplied } = await revokeEntitlementForRefund(db, {
+    materialId: event.materialId,
+    buyerAddress,
+    refundEventId,
+    purchaseId: event.purchaseId ?? null,
+    transactionHash: event.transactionHash || event.txHash || null,
+    now,
+  });
+
+  const purchases = db.collection(COLLECTIONS.purchases);
+  const purchase = await purchases.findOne({ materialId: event.materialId, buyerAddress });
+  if (purchase && purchase.refundEventId !== refundEventId) {
+    await purchases.updateOne(
+      { materialId: event.materialId, buyerAddress },
+      {
+        $set: {
+          status: "refunded",
+          settlementState: "Refunded",
+          refundEventId,
+          refundedChainPurchaseId: event.purchaseId ?? null,
+          refundAmount: event.refundAmount ?? null,
+          refundTxHash: event.transactionHash || event.txHash || null,
+          refundedAt: now,
+          updatedAt: now,
+        },
+      }
+    );
+  }
+
+  // Only notify the buyer the first time this refund is applied, so replaying
+  // a ledger range never sends duplicate emails.
+  if (alreadyApplied) return;
+
+  await enqueue({
+    sourceAggregate: "purchase",
+    sourceId: purchase ? String(purchase._id) : `${event.materialId}:${buyerAddress}`,
+    intent: {
+      type: "email",
+      channel: "purchase_refund",
+      payload: {
+        source: "indexer",
+        refundEventId,
+        purchaseId: purchase?._id ?? null,
+        chainPurchaseId: event.purchaseId ?? null,
+        materialId: event.materialId,
+        buyerAddress,
+        refundAmount: event.refundAmount ?? null,
+        asset: event.asset ?? null,
+      },
+    },
+  }).catch((err) => logger.error({ err, refundEventId }, "Failed to enqueue refund email"));
+}
+
+export async function runIndexerBatch({ db, eventSource, source = "stellar", limit = 100, enqueue }) {
   const stateId = `${source}:events`;
   const state = await db.collection(COLLECTIONS.syncState).findOne({ _id: stateId });
   const batch = await eventSource.getEvents({ cursor: state?.cursor || null, limit });
@@ -139,7 +224,7 @@ export async function runIndexerBatch({ db, eventSource, source = "stellar", lim
     }
 
     try {
-      const result = await applyIndexedEvent(db, { ...parsedEvent, source });
+      const result = await applyIndexedEvent(db, { ...parsedEvent, source }, enqueue ? { enqueue } : undefined);
       if (result.skipped) {
         skipped += 1;
         // If a dead-letter exists for this event, increment its retry count
