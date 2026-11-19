@@ -84,7 +84,7 @@ export async function POST(request) {
         const sessionContext = result.sessionContext;
         await storeRefreshToken(userId, refreshToken, sessionContext);
 
-        const isProduction = process.env.NODE_ENV === "production";
+        const isSecure = true;
         const response = NextResponse.json({
           success: true,
           user: user || null,
@@ -93,7 +93,7 @@ export async function POST(request) {
 
         response.cookies.set("auth_token", accessToken, {
           httpOnly: true,
-          secure: isProduction,
+          secure: isSecure,
           sameSite: "strict",
           path: "/",
           maxAge: 15 * 60, // 15 minutes
@@ -101,10 +101,19 @@ export async function POST(request) {
 
         response.cookies.set("refresh_token", refreshToken, {
           httpOnly: true,
-          secure: isProduction,
+          secure: isSecure,
           sameSite: "strict",
           path: "/api/auth/refresh",
           maxAge: 7 * 24 * 60 * 60, // 7 days
+        });
+
+        const csrfToken = crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : generateRefreshToken().slice(0, 32);
+        response.cookies.set("csrf_token", csrfToken, {
+          httpOnly: false,
+          secure: isSecure,
+          sameSite: "lax",
+          path: "/",
+          maxAge: 7 * 24 * 60 * 60,
         });
 
         auditLog({

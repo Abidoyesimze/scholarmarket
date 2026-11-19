@@ -10,25 +10,37 @@ export function isAdmin(user) {
 }
 
 /**
- * Extracts and verifies admin user from request cookies or Authorization header.
+ * Middleware helper to verify admin privileges on API requests.
  * @param {Request} request
- * @returns {Promise<object|null>}
+ * @returns {Promise<{ authorized: boolean, user?: object, status?: number, error?: string }>}
  */
-export async function getAdminUserFromRequest(request) {
+export async function verifyAdminAuth(request) {
   const token = getAuthToken(request);
-
-  if (!token) return null;
+  if (!token) {
+    return {
+      authorized: false,
+      status: 401,
+      error: "Unauthorized: Missing authentication token",
+    };
+  }
 
   const verification = await verifyDashboardToken(token, process.env.JWT_SECRET);
   if (!verification.valid || !verification.payload) {
-    return null;
+    return {
+      authorized: false,
+      status: 401,
+      error: "Unauthorized: Invalid or expired token",
+    };
   }
 
   const payload = verification.payload;
 
   // Check role directly on JWT payload
   if (isAdmin(payload)) {
-    return payload;
+    return {
+      authorized: true,
+      user: payload,
+    };
   }
 
   // Check database if role is not present in JWT payload
@@ -40,7 +52,10 @@ export async function getAdminUserFromRequest(request) {
         const db = await getDb();
         const dbUser = await db.collection("users").findOne({ _id: new ObjectId(payload.sub) });
         if (dbUser && isAdmin(dbUser)) {
-          return { ...payload, role: "admin", email: dbUser.email, address: dbUser.walletAddress };
+          return {
+            authorized: true,
+            user: { ...payload, role: "admin", email: dbUser.email, address: dbUser.walletAddress },
+          };
         }
       }
     } catch {
@@ -48,27 +63,21 @@ export async function getAdminUserFromRequest(request) {
     }
   }
 
-  return null;
+  return {
+    authorized: false,
+    status: 403,
+    error: "Forbidden: Admin privileges required",
+  };
 }
 
 /**
- * Middleware helper to verify admin privileges on API requests.
+ * Extracts and verifies admin user from request cookies or Authorization header.
  * @param {Request} request
- * @returns {Promise<{ authorized: boolean, user?: object, status?: number, error?: string }>}
+ * @returns {Promise<object|null>}
  */
-export async function verifyAdminAuth(request) {
-  const adminUser = await getAdminUserFromRequest(request);
-  if (!adminUser) {
-    return {
-      authorized: false,
-      status: 403,
-      error: "Forbidden: Admin privileges required",
-    };
-  }
-  return {
-    authorized: true,
-    user: adminUser,
-  };
+export async function getAdminUserFromRequest(request) {
+  const auth = await verifyAdminAuth(request);
+  return auth.authorized ? auth.user : null;
 }
 
 /**
