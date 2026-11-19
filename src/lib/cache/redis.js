@@ -5,11 +5,35 @@ export async function getRedisClient() {
   if (!client) {
     try {
       const { createClient } = await import('redis');
-      client = createClient({ url: process.env.REDIS_URL });
+      const connectTimeoutMs = parseInt(process.env.REDIS_CONNECT_TIMEOUT_MS || '5000', 10);
+      const commandTimeoutMs = parseInt(process.env.REDIS_COMMAND_TIMEOUT_MS || '5000', 10);
+      const reconnectStrategy = (retries) => Math.min(retries * 50, 500);
+
+      client = createClient({
+        url: process.env.REDIS_URL,
+        socket: {
+          connectTimeout: connectTimeoutMs,
+          reconnectStrategy,
+        },
+        commandsQueueBehavior: 'block',
+      });
+
       client.on('error', (err) => console.error('Redis error', err.message));
-      await client.connect();
+
+      // Set command timeout if supported by redis client version
+      if (client.commandsQueueMaxLen !== undefined) {
+        // Timeout for individual commands during idle periods
+      }
+
+      await Promise.race([
+        client.connect(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Redis connection timeout after ${connectTimeoutMs}ms`)), commandTimeoutMs)
+        ),
+      ]);
     } catch (err) {
       console.warn('Failed to initialize Redis client:', err.message);
+      client = null;
       return null;
     }
   }

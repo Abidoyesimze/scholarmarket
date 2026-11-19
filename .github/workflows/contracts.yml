@@ -56,6 +56,52 @@ jobs:
           workspaces: |
             soroban -> soroban/target
 
+      - name: Run Soroban tests
+        if: steps.detect_soroban.outputs.present == 'true'
+        working-directory: soroban
+        run: cargo test --workspace --all-targets
+
+      - name: Verify Soroban test snapshots are up to date
+        if: steps.detect_soroban.outputs.present == 'true'
+        shell: bash
+        run: |
+          cd soroban
+
+          # Check for differences in test_snapshots
+          if git diff --exit-code "**/test_snapshots" > /dev/null 2>&1; then
+            echo "✓ Test snapshots are up to date"
+          else
+            echo "❌ Test snapshots are out of date!"
+            echo ""
+            echo "Changed snapshot files:"
+            git diff --name-only "**/test_snapshots"
+            echo ""
+            echo "To regenerate snapshots, run:"
+            echo "  cd soroban && cargo test --workspace --all-targets -- --include-ignored"
+            echo "  Then commit the changes to soroban/**/test_snapshots/"
+            echo ""
+            exit 1
+          fi
+
+          # Check for orphaned snapshot files (snapshots for deleted tests)
+          if find . -type f -name "*.snap" -o -name "*.snapshot" | grep -q .; then
+            orphaned=false
+            for snapshot in $(find . -type f \( -name "*.snap" -o -name "*.snapshot" \)); do
+              # Simple heuristic: if the snapshot file exists but test code is missing
+              testdir=$(dirname "$snapshot")
+              if [ ! -f "$testdir/../lib.rs" ] && [ ! -f "$testdir/../test.rs" ]; then
+                echo "⚠️  Potentially orphaned snapshot: $snapshot"
+                orphaned=true
+              fi
+            done
+            if [ "$orphaned" = true ]; then
+              echo "Please review and remove orphaned snapshot files."
+            fi
+          fi
+
+      - name: Check Soroban formatting
+        if: steps.detect_soroban.outputs.present == 'true'
+        working-directory: soroban
       - name: Check formatting
         if: steps.detect.outputs.present == 'true'
         run: cargo fmt --all -- --check
