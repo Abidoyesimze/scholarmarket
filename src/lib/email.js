@@ -180,6 +180,55 @@ export async function sendPurchaseReceiptEmail(to, purchase, material) {
   await transporter.sendMail({ from, to, subject, text, html });
 }
 
+export async function sendRefundNotificationEmail(to, refund, material) {
+  const defaultFrom = process.env.EMAIL_USER || "no-reply@scholarmarket.local";
+  const from = process.env.EMAIL_FROM || defaultFrom;
+  const transporter = createTransporter();
+
+  const title = material?.title || "Study Material";
+  const amount = refund.refundAmount || "0";
+  const asset = refund.asset || "XLM";
+  const purchaseId = String(refund.chainPurchaseId || refund.purchaseId || "N/A");
+
+  const subject = `Your refund for ${title} has been processed`;
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const purchasesUrl = `${appUrl}/dashboard/purchases`;
+
+  const text = `Hi,\n\nYour purchase of "${title}" has been refunded on-chain.\n\n- Refund amount: ${amount} ${asset}\n- Purchase ID: ${purchaseId}\n\nAccess to this material has been revoked. You can review your library here:\n${purchasesUrl}\n\nCheers,\nScholarMarket Team`;
+
+  const html = `
+  <!doctype html>
+  <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <title>Refund Processed</title>
+    </head>
+    <body style="margin:0;padding:0;background:#f6f9fc;font-family:sans-serif;">
+      <div style="max-width:600px;margin:20px auto;background:#ffffff;padding:20px;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+        <h2 style="color:#111827;margin-top:0;">Refund processed</h2>
+        <p style="color:#4b5563;font-size:14px;">Your purchase of <strong>${title}</strong> has been refunded on-chain and access has been revoked.</p>
+        <table style="width:100%;border-collapse:collapse;margin:20px 0;">
+          <tr>
+            <td style="padding:10px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Refund amount</td>
+            <td style="padding:10px;border-bottom:1px solid #e5e7eb;color:#111827;text-align:right;font-weight:bold;">${amount} ${asset}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Purchase ID</td>
+            <td style="padding:10px;border-bottom:1px solid #e5e7eb;color:#111827;text-align:right;font-family:monospace;">${purchaseId}</td>
+          </tr>
+        </table>
+        <div style="margin:30px 0;text-align:center;">
+          <a href="${purchasesUrl}" style="background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold;display:inline-block;font-size:14px;">View My Purchases</a>
+        </div>
+        <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:20px;">© ${new Date().getFullYear()} ScholarMarket</p>
+      </div>
+    </body>
+  </html>`;
+
+  await transporter.sendMail({ from, to, subject, text, html });
+}
+
 import { enqueueSideEffect } from "./backend/outbox.js";
 
 export async function sendReceiptIfEligible(db, purchaseId) {

@@ -5,6 +5,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { useUserProfile, useCreateProfile, useUpdateProfile } from "@/hooks/api/useProfile";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaUser, FaPen, FaCamera, FaSpinner, FaCheckCircle } from "react-icons/fa";
+import Image from "next/image";
 
 export default function ProfileOnboarding() {
   const { address, isConnected } = useWallet();
@@ -77,8 +78,7 @@ export default function ProfileOnboarding() {
       <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden">
           {profile.avatarUrl ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={profile.avatarUrl} alt="" className="w-full h-full object-cover" />
+            <Image src={profile.avatarUrl} alt="" fill sizes="48px" className="object-cover" />
           ) : (
             <FaUser className="text-indigo-500 text-lg" />
           )}

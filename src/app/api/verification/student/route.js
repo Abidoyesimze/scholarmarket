@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { validateAuth } from "@/lib/auth/session";
 
+import { logger } from "@/lib/logger";
 /**
  * POST /api/verification/student
  * Submit student verification application with documents
@@ -145,7 +146,7 @@ export async function POST(request) {
       { status: 201 },
     );
   } catch (error) {
-    console.error("Error submitting student verification:", error);
+    logger.error("Error submitting student verification:", error);
     return NextResponse.json(
       { error: "Failed to submit verification", details: error.message },
       { status: 500 },
@@ -198,7 +199,7 @@ export async function GET(request) {
       },
     });
   } catch (error) {
-    console.error("Error checking verification status:", error);
+    logger.error("Error checking verification status:", error);
     return NextResponse.json(
       { error: "Failed to check verification status", details: error.message },
       { status: 500 },

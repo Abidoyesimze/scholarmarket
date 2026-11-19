@@ -46,6 +46,12 @@ export function getExplorerAccountUrl(address) {
   return `${EXPLORER_URL}/account/${address}`;
 }
 
+export function getNetworkName(passphrase) {
+  if (passphrase === Networks.PUBLIC) return 'Mainnet';
+  if (passphrase === Networks.TESTNET) return 'Testnet';
+  return 'Unknown';
+}
+
 export function getIpfsUrl(cid) {
   if (!cid) return '';
   if (cid.startsWith('http')) return cid;

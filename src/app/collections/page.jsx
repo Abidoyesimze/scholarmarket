@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { FiBookOpen } from "react-icons/fi";
+import EmptyState from "@/components/common/EmptyState";
 
 export default function CollectionsPage() {
   const [collections, setCollections] = useState([]);
@@ -41,11 +42,16 @@ export default function CollectionsPage() {
           ))}
         </div>
       ) : collections.length === 0 ? (
-        <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800">
-          <FiBookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold mb-2">No collections yet</h3>
-          <p className="text-gray-500">Check back later for curated learning paths.</p>
-        </div>
+        <EmptyState
+          icon={<FiBookOpen className="text-3xl text-blue-500" />}
+          title="No collections yet"
+          description="Check back later for curated learning paths, or explore individual materials."
+          headingLevel="h3"
+          primaryAction={{
+            label: "Browse marketplace",
+            href: "/marketplace",
+          }}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {collections.map((col) => (

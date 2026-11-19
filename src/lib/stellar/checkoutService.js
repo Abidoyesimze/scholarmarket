@@ -1,5 +1,5 @@
-import { fetchFeeStats } from './horizonClient';
-import logger from '@/lib/logger';
+import { fetchFeeStats } from './horizonClient.js';
+import logger from '../logger.js';
 
 // Base fee stroops (100 stroops = 0.00001 XLM per operation is Stellar's minimum)
 const BASE_FEE_STROOPS = 100;

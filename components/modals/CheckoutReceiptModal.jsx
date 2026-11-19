@@ -7,6 +7,7 @@ import {
   FaExclamationTriangle,
   FaExternalLinkAlt,
   FaLockOpen,
+  FaPrint,
   FaReceipt,
   FaSpinner,
   FaTimes,
@@ -104,6 +105,9 @@ export default function CheckoutReceiptModal({
   isDownloading = false,
   downloadError,
 }) {
+  const handlePrint = () => {
+    window.print();
+  };
   const copy = STATE_COPY[status] || STATE_COPY.success;
   const classes = toneClasses[copy.tone];
   const StatusIcon = copy.icon;
@@ -121,8 +125,29 @@ export default function CheckoutReceiptModal({
     <AnimatePresence>
       {isOpen ? (
         <>
+          <style>{`
+            @media print {
+              body { margin: 0; padding: 0; background: white; }
+              .no-print { display: none !important; }
+              .modal-backdrop { display: none !important; }
+              .print-only { display: block !important; }
+              .checkout-receipt-modal {
+                position: static;
+                width: 100%;
+                max-width: 100%;
+                border: none;
+                box-shadow: none;
+                margin: 0;
+                padding: 0;
+              }
+              .checkout-receipt-modal > * {
+                box-shadow: none !important;
+              }
+            }
+          `}</style>
           <motion.div
-            className="fixed inset-0 z-[80] bg-slate-950/70 backdrop-blur-md"
+            className="modal-backdrop fixed inset-0 z-[80] bg-slate-950/70 backdrop-blur-md no-print"
+            className="fixed inset-0 z-[110] bg-slate-950/70 backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -130,7 +155,8 @@ export default function CheckoutReceiptModal({
           />
 
           <motion.div
-            className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto p-4 sm:p-6"
+            className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto p-4 sm:p-6 no-print"
+            className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto p-4 sm:p-6"
             initial={{ opacity: 0, y: 24, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.97 }}
@@ -139,7 +165,7 @@ export default function CheckoutReceiptModal({
             aria-modal="true"
             aria-labelledby="checkout-receipt-title"
           >
-            <div className="relative w-full max-w-2xl overflow-hidden rounded-[2rem] border border-white/70 bg-white shadow-2xl shadow-slate-950/20">
+            <div className="checkout-receipt-modal relative w-full max-w-2xl overflow-hidden rounded-[2rem] border border-white/70 bg-white shadow-2xl shadow-slate-950/20">
               <div className={`absolute inset-x-0 top-0 h-40 bg-gradient-to-br ${classes.ring}`} />
               <div className="absolute -right-16 -top-20 h-48 w-48 rounded-full bg-white/40 blur-3xl" />
               <div className="absolute -left-20 top-16 h-56 w-56 rounded-full bg-blue-100/40 blur-3xl" />
@@ -238,22 +264,32 @@ export default function CheckoutReceiptModal({
 
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                   {isSuccess ? (
-                    <button
-                      type="button"
-                      onClick={onDownload}
-                      disabled={isDownloading}
-                      className="inline-flex flex-1 items-center justify-center gap-3 rounded-2xl bg-slate-950 px-5 py-3.5 text-sm font-bold text-white shadow-xl shadow-slate-950/20 transition hover:-translate-y-0.5 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isDownloading ? <FaSpinner className="animate-spin" /> : <FaCloudDownloadAlt />}
-                      {isDownloading ? "Requesting decryption..." : "Download Now"}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={onDownload}
+                        disabled={isDownloading}
+                        className="no-print inline-flex flex-1 items-center justify-center gap-3 rounded-2xl bg-slate-950 px-5 py-3.5 text-sm font-bold text-white shadow-xl shadow-slate-950/20 transition hover:-translate-y-0.5 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isDownloading ? <FaSpinner className="animate-spin" /> : <FaCloudDownloadAlt />}
+                        {isDownloading ? "Requesting decryption..." : "Download Now"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handlePrint}
+                        className="no-print inline-flex flex-1 items-center justify-center gap-3 rounded-2xl border border-slate-300 bg-white px-5 py-3.5 text-sm font-bold text-slate-700 shadow-lg transition hover:-translate-y-0.5 hover:bg-slate-50"
+                      >
+                        <FaPrint />
+                        Print Receipt
+                      </button>
+                    </>
                   ) : null}
 
                   {isError ? (
                     <button
                       type="button"
                       onClick={onRetry}
-                      className="inline-flex flex-1 items-center justify-center gap-3 rounded-2xl bg-blue-600 px-5 py-3.5 text-sm font-bold text-white shadow-xl shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-700"
+                      className="no-print inline-flex flex-1 items-center justify-center gap-3 rounded-2xl bg-blue-600 px-5 py-3.5 text-sm font-bold text-white shadow-xl shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-700"
                     >
                       Retry checkout
                     </button>

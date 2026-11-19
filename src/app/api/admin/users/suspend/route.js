@@ -1,22 +1,13 @@
 export const dynamic = 'force-dynamic'
+import { logger } from "@/lib/logger";
 export const runtime = 'nodejs'
 
 import { NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import { getDb } from '@/lib/mongodb'
-import { verifyDashboardToken } from '@/lib/auth/session'
 import { auditLog } from '@/lib/api/audit'
 import { sendSuspensionEmail, sendReactivationEmail } from '@/lib/email/suspensionNotifier'
-
-async function getAdminUser(request) {
-  const cookieHeader = request.headers.get('cookie') || ''
-  const cookieMatch = cookieHeader.match(/auth_token=([^;]+)/)
-  const token = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null
-  if (!token) return null
-  const verification = await verifyDashboardToken(token, process.env.JWT_SECRET)
-  if (!verification.valid) return null
-  return verification.payload
-}
+import { verifyAdminAuth } from '@/lib/auth/adminAuth'
 
 /**
  * POST /api/admin/users/suspend
@@ -32,10 +23,11 @@ async function getAdminUser(request) {
  */
 export async function POST(request) {
   try {
-    const admin = await getAdminUser(request)
-    if (!admin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = await verifyAdminAuth(request)
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
     }
+    const admin = auth.user
 
     const body = await request.json()
     const { userId, action, reason } = body
@@ -103,9 +95,9 @@ export async function POST(request) {
           await sendReactivationEmail({ to: recipientEmail, name: recipientName })
         }
         emailSent = true
-        console.log(JSON.stringify({ level: 'info', event: 'suspension_email_sent', to: recipientEmail, action, timestamp: new Date().toISOString() }))
+        logger.info(JSON.stringify({ level: 'info', event: 'suspension_email_sent', to: recipientEmail, action, timestamp: new Date().toISOString() }))
       } catch (emailErr) {
-        console.error(JSON.stringify({ level: 'error', event: 'suspension_email_failed', to: recipientEmail, error: emailErr.message, timestamp: new Date().toISOString() }))
+        logger.error(JSON.stringify({ level: 'error', event: 'suspension_email_failed', to: recipientEmail, error: emailErr.message, timestamp: new Date().toISOString() }))
       }
     }
 

@@ -3,6 +3,10 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 
+import { logger } from "@/lib/logger";
+import { withApiHardening } from "@/lib/api/hardening";
+import { API_RATE_LIMITS } from "@/lib/api/rateLimitConfig";
+import { withRequestLogger } from "@/lib/logger";
 /**
  * POST /api/checkout/verify-promo
  *
@@ -15,7 +19,11 @@ import { getDb } from '@/lib/mongodb';
  *   { valid: true, code, discountPercent, discountLabel, expiresAt }
  *   or { valid: false, error: 'expired' | 'invalid_code' | ... }
  */
-export async function POST(req) {
+export const POST = withRequestLogger(async function POST(req, context, requestLogger) {
+  return withApiHardening(req, {
+    route: "/api/checkout/verify-promo",
+    rateLimit: API_RATE_LIMITS["/api/checkout/verify-promo"],
+  }, async () => {
   try {
     const body = await req.json().catch(() => ({}));
     const { code, materialId } = body;
@@ -89,7 +97,8 @@ export async function POST(req) {
       usedCount: promo.usedCount || 0,
     }, { status: 200 });
   } catch (err) {
-    console.error('POST /api/checkout/verify-promo error:', err);
+    requestLogger.error({ err }, 'POST /api/checkout/verify-promo error');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
-}
+  });
+});

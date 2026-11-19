@@ -39,7 +39,7 @@ components:
       description: JWT session token set via HTTP-only cookie. Obtained through the authentication flow (POST /api/auth/challenge + POST /api/auth/verify).
 
   schemas:
-    Problem:
+    Error:
       type: object
       description: RFC 7807 Problem Details for HTTP APIs
       required:

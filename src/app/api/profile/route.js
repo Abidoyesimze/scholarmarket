@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 // Resolves: Create API routes to save and update creator profiles in the database.
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,7 @@ export async function POST(request) {
       await sendWelcomeEmail(email, fullName);
       emailSent = true;
     } catch (e) {
-      console.error("Welcome email failed:", e?.message || e);
+      logger.error("Welcome email failed:", e?.message || e);
     }
 
     return NextResponse.json({ success: true, user: newUser, emailSent });

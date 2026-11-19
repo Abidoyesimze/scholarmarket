@@ -13,6 +13,12 @@ vi.mock('@/hooks/useWallet', () => ({
 // Mock the config
 vi.mock('@/lib/config/chain', () => ({
   isMainnet: true,
+  getNetworkName: (passphrase) => {
+    if (passphrase === 'Test SDF Network ; September 2015') return 'Testnet';
+    if (passphrase === 'Public Global Stellar Network ; September 2015') return 'Mainnet';
+    return 'Unknown';
+  },
+  NETWORK_PASSPHRASE: 'Public Global Stellar Network ; September 2015',
 }));
 
 // Get the mocked hook
@@ -114,7 +120,7 @@ describe('WalletButton Component', () => {
       expect(reconnectBtn).toBeInTheDocument();
     });
 
-    it('should render unsupported network state', () => {
+    it('should render unsupported network state with reconnect and disconnect buttons', () => {
       useWallet.mockReturnValue({
         state: { status: WalletStatus.Unsupported },
         connect: mockConnect,
@@ -128,8 +134,26 @@ describe('WalletButton Component', () => {
       ).toBeInTheDocument();
       expect(screen.getByText('Mainnet')).toBeInTheDocument();
 
+      const reconnectBtn = screen.getByRole('button', { name: /reconnect/i });
+      expect(reconnectBtn).toBeInTheDocument();
+
       const disconnectBtn = screen.getByRole('button', { name: /disconnect/i });
       expect(disconnectBtn).toBeInTheDocument();
+    });
+
+    it('should call connect when reconnect button is clicked in unsupported state', async () => {
+      useWallet.mockReturnValue({
+        state: { status: WalletStatus.Unsupported },
+        connect: mockConnect,
+        disconnect: mockDisconnect,
+      });
+
+      render(<WalletButton />);
+
+      const reconnectBtn = screen.getByRole('button', { name: /reconnect/i });
+      await userEvent.click(reconnectBtn);
+
+      expect(mockConnect).toHaveBeenCalledTimes(1);
     });
 
     it('should render error state with retry button', () => {
@@ -441,6 +465,12 @@ describe('WalletButton Component', () => {
       vi.resetModules();
       vi.doMock('@/lib/config/chain', () => ({
         isMainnet: false,
+        getNetworkName: (passphrase) => {
+          if (passphrase === 'Test SDF Network ; September 2015') return 'Testnet';
+          if (passphrase === 'Public Global Stellar Network ; September 2015') return 'Mainnet';
+          return 'Unknown';
+        },
+        NETWORK_PASSPHRASE: 'Test SDF Network ; September 2015',
       }));
 
       useWallet.mockReturnValue({

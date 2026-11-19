@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { notFound, useParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -61,6 +61,8 @@ export default function CreatorProfilePage() {
           const data = await res.json();
           if (data.exists && data.user) {
             setProfile(data.user);
+          } else {
+            notFound();
           }
         }
       } catch (err) {

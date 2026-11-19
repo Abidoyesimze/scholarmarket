@@ -1,14 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { purchaseService } from '@/services/purchaseService';
 import { queryKeys } from '@/lib/query/queryKeys';
-import { useAccount } from 'wagmi';
+import { useWallet } from '@/hooks/useWallet';
 
 /**
  * Hook to check if the current user has entitlement to a specific material.
  * Supports both authenticated checks and eventual on-chain sync.
  */
 export function useEntitlement(materialId) {
-  const { address } = useAccount();
+  const { address } = useWallet();
 
   return useQuery({
     queryKey: queryKeys.purchases.entitlement(materialId, address),
@@ -27,7 +27,7 @@ export function useEntitlement(materialId) {
  * Limited to 50 IDs per call — split larger sets into chunks before passing.
  */
 export function useBatchEntitlements(materialIds = []) {
-  const { address } = useAccount();
+  const { address } = useWallet();
 
   return useQuery({
     queryKey: ['purchases', 'entitlements', 'batch', materialIds, address],

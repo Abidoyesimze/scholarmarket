@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 const AVATAR_COLORS = [
   "bg-blue-600",
   "bg-emerald-600",
@@ -51,6 +53,8 @@ const SIZE_CLASSES = {
   xl: "w-20 h-20 text-xl",
 };
 
+const SIZE_PIXELS = { xs: 24, sm: 32, md: 40, lg: 56, xl: 80 };
+
 export default function UserAvatar({
   displayName,
   avatarCid,
@@ -72,9 +76,11 @@ export default function UserAvatar({
       <div
         className={`${sizeClass} rounded-full overflow-hidden flex-shrink-0 ${className}`}
       >
-        <img
+        <Image
           src={src}
           alt={displayName || "User avatar"}
+          width={SIZE_PIXELS[size] || SIZE_PIXELS.md}
+          height={SIZE_PIXELS[size] || SIZE_PIXELS.md}
           className="w-full h-full object-cover"
           onError={(e) => {
             e.target.style.display = "none";

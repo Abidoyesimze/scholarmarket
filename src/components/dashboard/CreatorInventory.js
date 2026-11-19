@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FaChevronLeft, FaChevronRight, FaSpinner } from "react-icons/fa";
+import Image from "next/image";
 
 const PAGE_SIZE = 10;
 
@@ -158,8 +159,7 @@ export default function CreatorInventory() {
               >
                 <div className="h-28 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg flex items-center justify-center overflow-hidden mb-1">
                   {m.thumbnailUrl ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={m.thumbnailUrl} alt={m.title} className="w-full h-full object-cover" />
+                    <Image src={m.thumbnailUrl} alt={m.title} fill sizes="(max-width: 640px) 100vw, 33vw" className="object-cover" />
                   ) : (
                     <span className="text-4xl">📄</span>
                   )}

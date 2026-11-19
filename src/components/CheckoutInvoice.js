@@ -18,6 +18,9 @@ export default function CheckoutInvoice({
   onConfirm,
   disabled = false,
 }) {
+  const handlePrint = () => {
+    window.print();
+  };
   const [balanceStatus, setBalanceStatus] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -58,7 +61,15 @@ export default function CheckoutInvoice({
   const isButtonDisabled = disabled || !canCheckout || loading;
 
   return (
-    <div className="flex flex-col gap-2.5 text-xs text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200/60 dark:border-slate-800 pb-4">
+    <>
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { background: white; }
+          .checkout-invoice { border: 1px solid #ccc; }
+        }
+      `}</style>
+      <div className="checkout-invoice flex flex-col gap-2.5 text-xs text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200/60 dark:border-slate-800 pb-4">
       {/* Subtotal */}
       <div className="flex justify-between">
         <span className="text-slate-400">Notes Subtotal</span>
@@ -139,18 +150,28 @@ export default function CheckoutInvoice({
         </div>
       )}
 
-      {/* Action Button */}
-      <button 
-        className={`w-full mt-4 py-2.5 rounded-lg font-bold text-white transition-colors ${
-          isButtonDisabled 
-            ? 'bg-slate-400 dark:bg-slate-700 cursor-not-allowed' 
-            : 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600'
-        }`}
-        disabled={isButtonDisabled}
-        onClick={onConfirm}
-      >
-        {loading ? 'Checking Balance...' : 'Initiate Checkout'}
-      </button>
+      {/* Action Buttons */}
+      <div className="flex gap-2 mt-4">
+        <button
+          className={`flex-1 py-2.5 rounded-lg font-bold text-white transition-colors ${
+            isButtonDisabled
+              ? 'bg-slate-400 dark:bg-slate-700 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600'
+          }`}
+          disabled={isButtonDisabled}
+          onClick={onConfirm}
+        >
+          {loading ? 'Checking Balance...' : 'Initiate Checkout'}
+        </button>
+        <button
+          className="no-print px-3 py-2.5 rounded-lg font-bold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+          onClick={handlePrint}
+          title="Print this invoice"
+        >
+          🖨️
+        </button>
+      </div>
     </div>
+    </>
   );
 }

@@ -1,23 +1,10 @@
 import { NextResponse } from "next/server";
 import { withApiHardening } from "@/lib/api/hardening";
-import jwt from "jsonwebtoken";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { getUserFromCookie } from "@/lib/api/auth";
 
 export const runtime = "nodejs";
-
-async function getUserFromCookie(request) {
-  const cookieHeader = request.headers.get("cookie") || "";
-  const cookieMatch = cookieHeader.match(/auth_token=([^;]+)/);
-  const token = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
-  if (!token) return null;
-  try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    return payload;
-  } catch {
-    return null;
-  }
-}
 
 export async function POST(request) {
   return withApiHardening(
@@ -30,14 +17,29 @@ export async function POST(request) {
           return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const payload = await request.json();
+        let payload;
+        try {
+          payload = await request.json();
+        } catch {
+          return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+        }
+        const title =
+          typeof payload?.title === "string"
+            ? payload.title.replace(/[\u0000-\u001F\u007F]/g, "").trim().slice(0, 120)
+            : "";
+        const description =
+          typeof payload?.description === "string"
+            ? payload.description.replace(/[\u0000-\u001F\u007F]/g, "").trim().slice(0, 2000)
+            : "";
+        if (!title) return NextResponse.json({ error: "Title is required" }, { status: 400 });
+        if (!Array.isArray(payload.materialIds)) return NextResponse.json({ error: "materialIds must be an array" }, { status: 400 });
         const db = await getDb();
 
         const doc = {
-          title: payload.title,
-          description: payload.description,
+          title,
+          description,
           creatorId: user.sub,
-          materialIds: payload.materialIds || [], // Array of material ObjectId strings or similar
+          materialIds: payload.materialIds.slice(0, 500).map((id) => String(id).slice(0, 100)),
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -57,10 +59,13 @@ export async function GET(request) {
     { route: "collections", rateLimit: { limit: 80, windowMs: 60_000 } },
     async () => {
       try {
+        const user = await getUserFromCookie(request);
+        if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
         const db = await getDb();
         const items = await db
           .collection("collections")
-          .find({})
+          .find({ creatorId: user.sub })
           .sort({ createdAt: -1 })
           .toArray();
 

@@ -6,6 +6,11 @@ import { useUserMaterials, useUpdateMaterial } from "@/hooks/api/useMaterials";
 import { FaEdit, FaSave, FaTimes, FaSpinner, FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import ResourceStatusBadge from "@/components/materials/ResourceStatusBadge";
 import { EDITABLE_MATERIAL_FIELDS, IMMUTABLE_MATERIAL_FIELDS } from "@/lib/backend/schemaContracts";
+import Image from "next/image";
+import EmptyState from "@/components/common/EmptyState";
+import { IMMUTABLE_MATERIAL_FIELDS } from "@/lib/backend/schemaContracts";
+import { QueryStateProvider, ErrorMessage } from "@/components/common/QueryStateProvider";
+import Image from "next/image";
 
 function EditModal({ material, isOpen, onClose }) {
   const updateMutation = useUpdateMaterial();
@@ -177,16 +182,19 @@ function EditModal({ material, isOpen, onClose }) {
 
 export default function MyMaterialsPage() {
   const { address } = useWallet();
-  const { data: materials, isLoading, error: queryError } = useUserMaterials();
+  const materialsQuery = useUserMaterials();
   const [editMaterial, setEditMaterial] = useState(null);
 
   if (!address) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <p className="text-gray-600 text-sm">
-          Connect your wallet to view your uploaded materials.
-        </p>
-      </div>
+      <EmptyState
+        title="Connect your wallet"
+        description="Connect your wallet to view and manage your uploaded materials."
+        primaryAction={{
+          label: "Browse Marketplace",
+          href: "/marketplace",
+        }}
+      />
     );
   }
 
@@ -213,27 +221,36 @@ export default function MyMaterialsPage() {
       )}
 
       {queryError && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-600">{queryError.message}</p>
-        </div>
+        <EmptyState
+          variant="error"
+          title="Failed to load materials"
+          description={queryError.message}
+          primaryAction={{
+            label: "Try again",
+            onClick: () => window.location.reload(),
+          }}
+          secondaryAction={{
+            label: "Browse Marketplace",
+            href: "/marketplace",
+          }}
+        />
       )}
 
       {!isLoading && !queryError && materials?.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
-            <FaEdit className="text-blue-400 text-2xl" />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">No materials yet</h2>
-          <p className="text-sm text-gray-500 max-w-xs mb-6">
-            Upload your first educational material to start sharing with the community.
-          </p>
-          <a
-            href="/dashboard/upload"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 transition-colors"
-          >
-            Upload Material
-          </a>
-        </div>
+        <EmptyState
+          icon={<FaEdit className="text-blue-500 text-2xl" />}
+          title="No materials yet"
+          description="Upload your first educational material to start sharing with the community."
+          primaryAction={{
+            label: "Upload Material",
+            href: "/dashboard/upload",
+            icon: <FaEdit size={14} />,
+          }}
+          secondaryAction={{
+            label: "Browse Marketplace",
+            href: "/marketplace",
+          }}
+        />
       )}
 
       {materials?.length > 0 && (
@@ -242,63 +259,105 @@ export default function MyMaterialsPage() {
             <div
               key={material._id}
               className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow flex flex-col"
-            >
-              <div className="w-full h-36 bg-gradient-to-br from-blue-50 to-purple-50 rounded-t-xl flex items-center justify-center overflow-hidden">
-                {material.thumbnailUrl ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={material.thumbnailUrl}
-                    alt={material.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <FaEdit className="text-blue-300 text-4xl" />
-                )}
+      <QueryStateProvider
+        query={materialsQuery}
+        loadingComponent={
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse">
+                <div className="h-32 bg-gray-200 rounded-lg mb-4" />
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
+                <div className="h-3 bg-gray-200 rounded w-1/2 mb-4" />
+                <div className="h-8 bg-gray-200 rounded-lg w-full" />
               </div>
+            ))}
+          </div>
+        }
+        errorComponent={
+          <ErrorMessage message={materialsQuery.error?.message} retry={() => materialsQuery.refetch()} />
+        }
+        emptyComponent={
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
+              <FaEdit className="text-blue-400 text-2xl" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-800 mb-2">No materials yet</h2>
+            <p className="text-sm text-gray-500 max-w-xs mb-6">
+              Upload your first educational material to start sharing with the community.
+            </p>
+            <a
+              href="/dashboard/upload"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 transition-colors"
+            >
+              Upload Material
+            </a>
+          </div>
+        }
+        renderData={(materials) => (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {materials.map((material) => (
+              <div
+                key={material._id}
+                className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow flex flex-col"
+              >
+                <div className="w-full h-36 bg-gradient-to-br from-blue-50 to-purple-50 rounded-t-xl flex items-center justify-center overflow-hidden">
+                  {material.thumbnailUrl ? (
+                    <Image
+                      src={material.thumbnailUrl}
+                      alt={material.title}
+                      width={576}
+                      height={144}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <FaEdit className="text-blue-300 text-4xl" />
+                  )}
+                </div>
 
-              <div className="p-5 flex flex-col flex-1">
-                <h3 className="font-semibold text-gray-900 text-sm leading-snug mb-1 line-clamp-2">
-                  {material.title}
-                </h3>
+                <div className="p-5 flex flex-col flex-1">
+                  <h3 className="font-semibold text-gray-900 text-sm leading-snug mb-1 line-clamp-2">
+                    {material.title}
+                  </h3>
 
-                <ResourceStatusBadge material={material} max={3} className="mb-2" />
+                  <ResourceStatusBadge material={material} max={3} className="mb-2" />
 
-                {material.description && (
-                  <p className="text-xs text-gray-500 line-clamp-2 mb-3">{material.description}</p>
-                )}
-
-                <div className="mt-auto space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">
-                      {material.price ? `${material.price} XLM` : "Free"}
-                    </span>
-                    <span className={`flex items-center gap-1 ${
-                      material.visibility === "public" ? "text-green-600" : "text-amber-600"
-                    }`}>
-                      <FaCheckCircle size={10} />
-                      {material.visibility}
-                    </span>
-                  </div>
-
-                  {material.updatedAt && (
-                    <p className="text-xs text-gray-400">
-                      Updated: {new Date(material.updatedAt).toLocaleDateString()}
-                    </p>
+                  {material.description && (
+                    <p className="text-xs text-gray-500 line-clamp-2 mb-3">{material.description}</p>
                   )}
 
-                  <button
-                    onClick={() => setEditMaterial(material)}
-                    className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-                  >
-                    <FaEdit size={14} />
-                    Edit Material
-                  </button>
+                  <div className="mt-auto space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">
+                        {material.price ? `${material.price} XLM` : "Free"}
+                      </span>
+                      <span className={`flex items-center gap-1 ${
+                        material.visibility === "public" ? "text-green-600" : "text-amber-600"
+                      }`}>
+                        <FaCheckCircle size={10} />
+                        {material.visibility}
+                      </span>
+                    </div>
+
+                    {material.updatedAt && (
+                      <p className="text-xs text-gray-400">
+                        Updated: {new Date(material.updatedAt).toLocaleDateString()}
+                      </p>
+                    )}
+
+                    <button
+                      onClick={() => setEditMaterial(material)}
+                      className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      <FaEdit size={14} />
+                      Edit Material
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      />
 
       <EditModal
         material={editMaterial}

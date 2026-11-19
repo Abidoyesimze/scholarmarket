@@ -1,27 +1,19 @@
 export const dynamic = "force-dynamic";
+import { logger } from "@/lib/logger";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
-import { verifyDashboardToken } from "@/lib/auth/session";
-
-async function getAdminUser(request) {
-  const cookieHeader = request.headers.get("cookie") || "";
-  const cookieMatch = cookieHeader.match(/auth_token=([^;]+)/);
-  const token = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
-  if (!token) return null;
-  const verification = await verifyDashboardToken(token, process.env.JWT_SECRET);
-  if (!verification.valid) return null;
-  // Extend this check once a role field is added to the users collection
-  return verification.payload;
-}
+import { verifyAdminAuth } from "@/lib/auth/adminAuth";
+import { auditLog } from "@/lib/api/audit";
 
 export async function GET(request) {
   try {
-    const user = await getAdminUser(request);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await verifyAdminAuth(request);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
+    const user = auth.user;
 
     const db = await getDb();
     const disputes = await db
@@ -33,17 +25,18 @@ export async function GET(request) {
 
     return NextResponse.json({ disputes });
   } catch (error) {
-    console.error("[admin/disputes] GET error:", error);
+    logger.error("[admin/disputes] GET error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
 export async function PATCH(request) {
   try {
-    const user = await getAdminUser(request);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await verifyAdminAuth(request);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
+    const user = auth.user;
 
     const { disputeId, status, resolution } = await request.json();
     if (!disputeId || !status) {
@@ -68,9 +61,19 @@ export async function PATCH(request) {
       return NextResponse.json({ error: "Dispute not found" }, { status: 404 });
     }
 
+    auditLog({
+      event: "admin_dispute_resolved",
+      route: "admin/disputes",
+      method: "PATCH",
+      status: 200,
+      actor: user.sub || user.walletAddress,
+      disputeId,
+      newStatus: status,
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("[admin/disputes] PATCH error:", error);
+    logger.error("[admin/disputes] PATCH error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

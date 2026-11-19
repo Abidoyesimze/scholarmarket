@@ -2,7 +2,7 @@
 
 import { useWallet } from '@/hooks/useWallet';
 import { WalletStatus } from '@/providers/WalletProvider';
-import { isMainnet } from '@/lib/config/chain';
+import { isMainnet, getNetworkName, NETWORK_PASSPHRASE } from '@/lib/config/chain';
 
 const BTN_BASE =
   'inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60';
@@ -78,13 +78,18 @@ export function WalletButton() {
           <p className="text-sm text-amber-800">
             Your wallet is on the wrong network. Switch to{' '}
             <span className="font-semibold">
-              {isMainnet ? 'Mainnet' : 'Testnet'}
+              {getNetworkName(NETWORK_PASSPHRASE)}
             </span>{' '}
             in your wallet and reconnect.
           </p>
-          <button onClick={disconnect} className={`${BTN_GHOST} self-start`}>
-            Disconnect
-          </button>
+          <div className="flex gap-2 mt-1">
+            <button onClick={connect} className={`${BTN_PRIMARY} self-start`}>
+              Reconnect
+            </button>
+            <button onClick={disconnect} className={`${BTN_GHOST} self-start`}>
+              Disconnect
+            </button>
+          </div>
         </div>
       );
 

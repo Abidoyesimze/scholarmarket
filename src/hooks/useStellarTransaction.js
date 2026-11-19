@@ -1,18 +1,17 @@
 /**
  * useStellarTransaction - Issue #62
  *
- * Shared Stellar transaction state machine used by wallet-driven flows.
- * The hook now feeds the global transaction provider so route-level screens
- * can show the same lifecycle copy and retry actions.
+ * Handles Stellar transaction signing, submission to the Soroban RPC,
+ * and polling for confirmation.  Transaction lifecycle state updates
+ * (begin/mark/confirm/fail) are the caller's responsibility — this hook
+ * only manages the cryptographic and network operations.
  */
 
 "use client";
 
 import { useCallback, useState } from "react";
 import { useWallet } from "@/hooks/useWallet";
-import { useTransactionCenter } from "@/providers/TransactionProvider";
 import {
-  buildExplorerUrl,
   classifyTransactionError,
   TransactionStatus,
 } from "@/lib/transactions/transaction";
@@ -93,34 +92,24 @@ async function pollTransaction(hash, { maxAttempts = 15, delayMs = 2_000 } = {})
 }
 
 /**
- * Manages the full lifecycle of a Stellar transaction: wallet signing,
- * submission to the Stellar RPC, polling for confirmation, and state updates
- * exposed through the global transaction provider.
+ * Manages Stellar transaction signing, submission, and polling.
+ * The caller is responsible for beginTransaction / markStatus / confirmTransaction
+ * via useTransactionCenter().
  *
  * @returns {{
  *   execute: (unsignedXdr: string, options?: { description?: string, explorerBaseUrl?: string }) => Promise<{ hash: string }>,
  *   state: { status: string, description?: string, hash?: string, error?: Error },
  *   reset: () => void,
- *   retry: () => void,
  *   buildExplorerUrl: (hash: string) => string
- * }} An object containing the execute function, current state, reset, retry, and a helper to build explorer URLs.
+ * }}
  */
 export function useStellarTransaction() {
   const { signTransaction, isConnected } = useWallet();
-  const {
-    beginTransaction,
-    markStatus,
-    confirmTransaction,
-    failTransaction,
-    retryTransaction,
-    clearTransaction,
-  } = useTransactionCenter();
   const [state, setState] = useState({ status: TxStatus.Idle });
 
   const reset = useCallback(() => {
     setState({ status: TxStatus.Idle });
-    clearTransaction();
-  }, [clearTransaction]);
+  }, []);
 
   const execute = useCallback(
     async (unsignedXdr, { description = "Transaction", explorerBaseUrl } = {}) => {
@@ -128,33 +117,12 @@ export function useStellarTransaction() {
         const error = new Error(
           "Wallet not connected. Please connect your Stellar wallet first.",
         );
-        setState({
-          status: TxStatus.WaitingWallet,
-          error,
-          description,
-        });
-        beginTransaction({
-          scope: "stellar",
-          title: description,
-          message: "Connect your wallet to continue.",
-          explorerBaseUrl,
-        });
-        failTransaction(error, {
-          status: TransactionStatus.NeedsRetry,
-          title: "Wallet connection required",
-          message: "Connect your Stellar wallet to approve this transaction.",
-          retryable: true,
-        });
+        setState({ status: TxStatus.WaitingWallet, error, description });
         throw error;
       }
 
       try {
         setState({ status: TxStatus.Signing, description });
-        markStatus(TransactionStatus.Signing, {
-          title: `${description} - waiting for wallet`,
-          message: "Approve the transaction in your wallet to continue.",
-          explorerBaseUrl,
-        });
 
         let signedXdr;
         try {
@@ -171,49 +139,16 @@ export function useStellarTransaction() {
             error: walletError,
             description,
           });
-          failTransaction(walletError, {
-            status: isDismissal ? TransactionStatus.NeedsRetry : TransactionStatus.Failed,
-            title: isDismissal ? "Signature rejected" : "Transaction failed",
-            message: isDismissal
-              ? "The wallet request was cancelled before approval."
-              : msg,
-            retryable: true,
-            explorerBaseUrl,
-          });
           throw walletError;
         }
 
         setState({ status: TxStatus.Submitting, description });
-        markStatus(TransactionStatus.Submitting, {
-          title: `${description} - submitting`,
-          message: "Broadcasting the signed transaction to the network.",
-          explorerBaseUrl,
-        });
-
         const { hash } = await sendTransaction(signedXdr);
-        markStatus(TransactionStatus.PendingConfirmation, {
-          txHash: hash,
-          title: `${description} - pending confirmation`,
-          message:
-            "The transaction was submitted. Waiting for network confirmation.",
-          explorerBaseUrl,
-        });
-        setState({
-          status: TxStatus.PendingConfirmation,
-          description,
-          hash,
-        });
+        setState({ status: TxStatus.PendingConfirmation, description, hash });
 
         const confirmed = await pollTransaction(hash);
 
         setState({ status: TxStatus.Success, hash: confirmed.hash, description });
-        confirmTransaction({
-          txHash: confirmed.hash,
-          title: `${description} confirmed`,
-          message: "The network confirmed the transaction.",
-          explorerBaseUrl,
-        });
-
         return { hash: confirmed.hash };
       } catch (err) {
         const failure = classifyTransactionError(err);
@@ -225,25 +160,11 @@ export function useStellarTransaction() {
           error: err instanceof Error ? err : new Error(String(err)),
           description,
         });
-        failTransaction(err, {
-          status: failure.status,
-          title: failure.title,
-          message: failure.message,
-          retryable: failure.retryable,
-          explorerBaseUrl,
-        });
         throw err;
       }
     },
-    [
-      beginTransaction,
-      confirmTransaction,
-      failTransaction,
-      isConnected,
-      markStatus,
-      signTransaction,
-    ],
+    [isConnected, signTransaction],
   );
 
-  return { execute, state, reset, retry: retryTransaction, buildExplorerUrl };
+  return { execute, state, reset };
 }

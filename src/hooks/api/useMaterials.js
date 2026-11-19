@@ -98,6 +98,8 @@ export function useCreateMaterial() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.materials.all });
       queryClient.invalidateQueries({ queryKey: ['materials', 'marketplace'] });
+      // Published/draft counts on the analytics tab depend on the creator's materials.
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
     },
   });
 }
@@ -128,6 +130,8 @@ export function useUpdateMaterial() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.materials.all });
       queryClient.invalidateQueries({ queryKey: ['materials', 'marketplace'] });
+      // Published/draft counts on the analytics tab depend on the creator's materials.
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
     },
   });
 }
@@ -149,6 +153,60 @@ export function useSubmitMaterialFeedback(id) {
       queryClient.invalidateQueries({ queryKey: queryKeys.materials.feedback(id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.materials.detail(id) });
       queryClient.invalidateQueries({ queryKey: ['materials', 'marketplace'] });
+    },
+  });
+}
+
+/**
+ * Fetches the canonical subject/category taxonomy.
+ *
+ * The taxonomy is effectively static, so it is cached for the session.
+ *
+ * @returns {object} A react-query result containing `{ categories, subjects, levels }`.
+ */
+export function useSubjects() {
+  return useQuery({
+    queryKey: queryKeys.taxonomy.subjects(),
+    queryFn: () => materialService.getSubjects(),
+    staleTime: Infinity,
+  });
+}
+
+/**
+ * Fetches the current learner's personal note for a material.
+ *
+ * @param {string} id - The material ID.
+ * @param {object} [options]
+ * @param {boolean} [options.enabled=true] - Gate the request (e.g. on wallet connection).
+ * @returns {object} A react-query result containing `{ note, updatedAt }`.
+ */
+export function useMaterialNote(id, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: queryKeys.materials.notes(id),
+    queryFn: () => materialService.getNote(id),
+    enabled: !!id && enabled,
+  });
+}
+
+/**
+ * Mutation hook that saves the learner's personal note for a material.
+ *
+ * Writes the saved note straight into the cache so the editor reflects the
+ * persisted value without a refetch.
+ *
+ * @param {string} id - The material ID.
+ * @returns {object} A react-query mutation object. Call `mutate(note)` to save.
+ */
+export function useSaveMaterialNote(id) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (note) => materialService.saveNote(id, note),
+    onSuccess: (data, note) => {
+      queryClient.setQueryData(queryKeys.materials.notes(id), {
+        note: data?.note ?? note,
+        updatedAt: data?.updatedAt ?? new Date().toISOString(),
+      });
     },
   });
 }

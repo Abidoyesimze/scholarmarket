@@ -9,8 +9,12 @@ import {
   isCompletedPurchaseStatus,
   normalizeBuyerAddress,
 } from "@/lib/purchases/access";
+import { logger } from "@/lib/logger";
 import { broadcastPurchaseEvent } from '@/lib/webhooks/sender';
 import { sendReceiptIfEligible } from '@/lib/email';
+import { withApiHardening } from "@/lib/api/hardening";
+import { API_RATE_LIMITS } from "@/lib/api/rateLimitConfig";
+import { withRequestLogger } from "@/lib/logger";
 
 
 /**
@@ -30,7 +34,11 @@ import { sendReceiptIfEligible } from '@/lib/email';
  *       401:
  *         description: Unauthorized
  */
-export async function GET(req) {
+export const GET = withRequestLogger(async function GET(req, context, requestLogger) {
+  return withApiHardening(req, {
+    route: "/api/purchase",
+    rateLimit: API_RATE_LIMITS["/api/purchase"],
+  }, async () => {
   try {
     const user = await getUserFromCookie(req);
     if (!user) {
@@ -48,10 +56,11 @@ export async function GET(req) {
 
     return NextResponse.json(purchases);
   } catch (err) {
-    console.error("GET /api/purchase error:", err);
+    requestLogger.error({ err }, "GET /api/purchase error");
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
-}
+  });
+});
 
 /**
  * POST /api/purchase
@@ -84,7 +93,11 @@ export async function GET(req) {
  *       401:
  *         description: Unauthorized
  */
-export async function POST(req) {
+export const POST = withRequestLogger(async function POST(req, context, requestLogger) {
+  return withApiHardening(req, {
+    route: "/api/purchase",
+    rateLimit: API_RATE_LIMITS["/api/purchase"],
+  }, async () => {
   try {
     const user = await getUserFromCookie(req);
     const db = await getDb();
@@ -151,7 +164,7 @@ export async function POST(req) {
       const access = await getMaterialAccessStatus(db, materialId, buyerAddress);
 
       if (paymentCompleted) {
-        sendReceiptIfEligible(db, existing._id).catch(err => console.error(err));
+        sendReceiptIfEligible(db, existing._id).catch(err => logger.error(err));
         // Fire webhook asynchronously
         broadcastPurchaseEvent(materialId, {
           buyerAddress,
@@ -193,7 +206,7 @@ export async function POST(req) {
         transactionHash: transactionHash || null,
       });
 
-      sendReceiptIfEligible(db, result.insertedId).catch(err => console.error(err));
+      sendReceiptIfEligible(db, result.insertedId).catch(err => logger.error(err));
 
       // Fire webhook asynchronously
       broadcastPurchaseEvent(materialId, purchaseRecord);
@@ -204,7 +217,8 @@ export async function POST(req) {
       { status: paymentCompleted ? 201 : 202 }
     );
   } catch (err) {
-    console.error("POST /api/purchase error:", err);
+    requestLogger.error({ err }, "POST /api/purchase error");
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
-}
+  });
+});

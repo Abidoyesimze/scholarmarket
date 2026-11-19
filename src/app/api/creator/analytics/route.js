@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
-import { getDb } from "@/lib/mongodb";
-import { getUserFromCookie } from "@/lib/api/auth";
+import { NextResponse } from "next/server.js";
+import { getDb } from "../../../../lib/mongodb.js";
+import { getUserFromCookie } from "../../../../lib/api/auth.js";
 
 export const dynamic = "force-dynamic";
+import { logger } from "../../../../lib/logger.js";
 export const runtime = "nodejs";
 
 const COMPLETED_PURCHASE_STATUSES = ["confirmed", "settled", "completed"];
@@ -209,6 +210,8 @@ export async function GET(request) {
       topMaterialsAgg,
       recentOrdersDocs,
       savedDocs,
+      refundsCollectionDocs,
+      purchasesRefundsAgg,
     ] = await Promise.all([
       purchases
         .aggregate([
@@ -291,9 +294,43 @@ export async function GET(request) {
       safeFindArray(db.collection("saved_materials"), {
         materialId: { $in: materialIdStrings },
       }),
+      safeFindArray(db.collection("refunds"), {
+        $or: [
+          { materialId: { $in: materialIdStrings } },
+          { creatorAddress },
+        ],
+        status: { $nin: ["rejected", "cancelled"] },
+      }),
+      purchases
+        .aggregate([
+          {
+            $match: {
+              materialId: { $in: materialIdStrings },
+              $or: [
+                { status: "refunded" },
+                { settlementState: "Refunded" },
+              ],
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: { $toDouble: "$amount" } },
+            },
+          },
+        ])
+        .toArray(),
     ]);
 
-    const totalRevenue = allTimeAgg[0]?.total ?? 0;
+    const refundsCollSum = refundsCollectionDocs.reduce(
+      (sum, r) => sum + (Number(r.amount) || 0),
+      0
+    );
+    const purchasesRefundSum = purchasesRefundsAgg[0]?.total ?? 0;
+    const totalRefunds = refundsCollSum + purchasesRefundSum;
+
+    const grossRevenue = allTimeAgg[0]?.total ?? 0;
+    const totalRevenue = Math.max(0, grossRevenue - totalRefunds);
     const totalSales = allTimeAgg[0]?.count ?? 0;
     const monthlySales = monthlySalesAgg[0]?.count ?? 0;
     const pendingCount = incompleteAgg.find((g) => g._id === "pending")?.count ?? 0;
@@ -453,7 +490,7 @@ export async function GET(request) {
       },
     });
   } catch (error) {
-    console.error("[analytics] GET error:", error);
+    logger.error("[analytics] GET error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

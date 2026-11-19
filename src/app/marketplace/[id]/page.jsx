@@ -20,7 +20,7 @@ import ResourceStatusBadge from "@/components/materials/ResourceStatusBadge";
 import { motion } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import BuyNowModal from "./modals/BuyNowModal";
-import { useParams } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import { useMaterialDetail } from "@/hooks/api/useMaterials";
 import { useEntitlement } from "@/hooks/api/useEntitlements";
 import { QueryStateProvider } from "@/components/common/QueryStateProvider";
@@ -31,7 +31,7 @@ import { trackRecentlyViewed } from "@/hooks/useRecentlyViewed";
 import RecommendedMaterials from "@/components/materials/RecommendedMaterials";
 import MaterialReviewPanel from "@/components/materials/MaterialReviewPanel";
 import LearnerNotes from "@/components/materials/LearnerNotes";
-import { useAccount } from "wagmi";
+import { useWallet } from "@/hooks/useWallet";
 
 const FALLBACK_IMAGE = "/images/image2.jpg";
 
@@ -565,7 +565,7 @@ export default function MaterialDetailsPage() {
 	const [history, setHistory] = useState([]);
 	const materialQuery = useMaterialDetail(id);
 	const entitlementQuery = useEntitlement(id);
-	const { address } = useAccount();
+	const { address } = useWallet();
 	const [downloadError, setDownloadError] = useState(null);
 	const [isDownloading, setIsDownloading] = useState(false);
 
@@ -622,6 +622,12 @@ export default function MaterialDetailsPage() {
 			trackRecentlyViewed(materialQuery.data);
 		}
 	}, [materialQuery.data]);
+
+	useEffect(() => {
+		if (materialQuery.isError && materialQuery.error?.status === 404) {
+			notFound();
+		}
+	}, [materialQuery.isError, materialQuery.error]);
 
 	return (
 		<>
@@ -873,6 +879,10 @@ export default function MaterialDetailsPage() {
 											currentAddress={address}
 											creatorAddress={material.userAddress || material.ownerAddress || material.creatorAddress || material.author?.walletAddress}
 										/>
+
+										{isOwned && address ? (
+											<LearnerNotes materialId={id} walletAddress={address} />
+										) : null}
 									</div>
 
 									{/* RIGHT: sticky purchase card (first on mobile for early CTA visibility) */}

@@ -2,21 +2,12 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
-import { verifyDashboardToken } from "@/lib/auth/session";
+import { getUserFromCookie } from "@/lib/api/auth";
 import {
   buildPurchaseHistoryRecords,
   fetchHorizonTransactions,
 } from "@/lib/transactions/historyFeed";
-
-async function getUserFromCookie(request) {
-  const cookieHeader = request.headers.get("cookie") || "";
-  const cookieMatch = cookieHeader.match(/auth_token=([^;]+)/);
-  const token = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
-  if (!token) return null;
-  const verification = await verifyDashboardToken(token, process.env.JWT_SECRET);
-  if (!verification.valid) return null;
-  return verification.payload;
-}
+import { logger } from "@/lib/logger";
 
 function parsePage(value) {
   const page = Number(value);
@@ -84,7 +75,7 @@ export async function GET(request) {
       records: combined,
     });
   } catch (error) {
-    console.error("Transaction history error:", error);
+    logger.error("Transaction history error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

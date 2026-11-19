@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FaCloudUploadAlt, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
+import Image from "next/image";
 
 export default function StudentVerificationForm({ onSuccess, userAddress }) {
   const [formData, setFormData] = useState({
@@ -328,9 +329,12 @@ export default function StudentVerificationForm({ onSuccess, userAddress }) {
                   {(documentFile.size / 1024).toFixed(2)} KB
                 </p>
                 {documentPreview && (
-                  <img
+                  <Image
                     src={documentPreview}
                     alt="Document preview"
+                    width={320}
+                    height={192}
+                    unoptimized
                     className="mt-2 max-w-xs max-h-48 rounded border"
                   />
                 )}

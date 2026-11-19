@@ -1,26 +1,22 @@
 export const dynamic = "force-dynamic";
+import { logger } from "@/lib/logger";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
-import { getUserFromCookie } from "@/lib/api/auth";
 import { auditLog } from "@/lib/api/audit";
-
-async function getAdminUser(request) {
-  const user = await getUserFromCookie(request);
-  if (!user || user.role !== "admin") return null;
-  return user;
-}
+import { verifyAdminAuth } from "@/lib/auth/adminAuth";
 
 export async function POST(request) {
   try {
-    const admin = await getAdminUser(request);
-    if (!admin) {
+    const auth = await verifyAdminAuth(request);
+    if (!auth.authorized) {
       return NextResponse.json(
-        { error: "Unauthorized. Admin access required." },
-        { status: 403 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
+    const admin = auth.user;
 
     const body = await request.json();
     const { applicationId, action } = body;
@@ -88,7 +84,7 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, status: newStatus });
   } catch (error) {
-    console.error("[admin/verification] POST error:", error);
+    logger.error("[admin/verification] POST error:", error);
     return NextResponse.json(
       { error: error.message || "Internal Server Error" },
       { status: 500 }
@@ -98,13 +94,14 @@ export async function POST(request) {
 
 export async function GET(request) {
   try {
-    const admin = await getAdminUser(request);
-    if (!admin) {
+    const auth = await verifyAdminAuth(request);
+    if (!auth.authorized) {
       return NextResponse.json(
-        { error: "Unauthorized. Admin access required." },
-        { status: 403 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
+    const admin = auth.user;
 
     const db = await getDb();
     const applications = await db
@@ -116,7 +113,7 @@ export async function GET(request) {
 
     return NextResponse.json({ applications });
   } catch (error) {
-    console.error("[admin/verification] GET error:", error);
+    logger.error("[admin/verification] GET error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }

@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FaFilter } from "react-icons/fa";
+import { useSubjects } from "@/hooks/api/useMaterials";
+
+const FALLBACK_CATEGORIES = ["All", "Social Sciences", "Engineering", "Pharmacy"];
 
 const SkeletonCard = () => (
   <div className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
@@ -14,29 +17,11 @@ const SkeletonCard = () => (
 
 export default function MarketPage() {
   const [activeCategory, setActiveCategory] = useState("All");
-  const [categories, setCategories] = useState(["All"]);
-  const [categoriesLoading, setCategoriesLoading] = useState(true);
-
-  // Load subject categories
-  useEffect(() => {
-    async function loadCategories() {
-      try {
-        setCategoriesLoading(true);
-        const res = await fetch('/api/subjects');
-        if (res.ok) {
-          const data = await res.json();
-          setCategories(data.subjects || ["All"]);
-        }
-      } catch (err) {
-        console.error('Failed to load categories:', err);
-        // Fallback to default categories
-        setCategories(["All", "Social Sciences", "Engineering", "Pharmacy"]);
-      } finally {
-        setCategoriesLoading(false);
-      }
-    }
-    loadCategories();
-  }, []);
+  const subjectsQuery = useSubjects();
+  const categoriesLoading = subjectsQuery.isLoading;
+  const categories = subjectsQuery.isError
+    ? FALLBACK_CATEGORIES
+    : subjectsQuery.data?.subjects || ["All"];
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">

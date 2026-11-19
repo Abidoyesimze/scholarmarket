@@ -19,7 +19,8 @@ import { WalletContext } from '@/providers/WalletProvider';
  *   isConnected: boolean,
  *   address: string | null,
  *   balances: object,
- *   refreshBalances: () => Promise<void>
+ *   refreshBalances: () => Promise<void>,
+ *   networkPassphrase: string | null
  * }} The wallet context value.
  * @throws {Error} If used outside of a `<WalletProvider>`.
  */

@@ -45,8 +45,8 @@ export async function POST(request) {
           auditLog({ event: "token_refresh_invalid", route: "auth/refresh", method: "POST", status: 401 });
           // Clear any stale cookies on the client
           const response = NextResponse.json({ error: "Invalid or expired refresh token" }, { status: 401 });
-          response.cookies.set("auth_token", "", { maxAge: 0, path: "/" });
-          response.cookies.set("refresh_token", "", { maxAge: 0, path: "/" });
+          response.cookies.set("auth_token", "", { maxAge: 0, path: "/", httpOnly: true, secure: true, sameSite: "strict" });
+          response.cookies.set("refresh_token", "", { maxAge: 0, path: "/api/auth/refresh", httpOnly: true, secure: true, sameSite: "strict" });
           return response;
         }
 
@@ -71,12 +71,12 @@ export async function POST(request) {
 
         const accessToken = generateAccessToken(tokenPayload);
 
-        const isProduction = process.env.NODE_ENV === "production";
+        const isSecure = true;
         const response = NextResponse.json({ success: true });
 
         response.cookies.set("auth_token", accessToken, {
           httpOnly: true,
-          secure: isProduction,
+          secure: isSecure,
           sameSite: "strict",
           path: "/",
           maxAge: 15 * 60, // 15 minutes
@@ -84,7 +84,7 @@ export async function POST(request) {
 
         response.cookies.set("refresh_token", rotation.refreshToken, {
           httpOnly: true,
-          secure: isProduction,
+          secure: isSecure,
           sameSite: "strict",
           path: "/api/auth/refresh",
           maxAge: 7 * 24 * 60 * 60, // 7 days
