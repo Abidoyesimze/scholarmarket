@@ -32,6 +32,7 @@ import RecommendedMaterials from "@/components/materials/RecommendedMaterials";
 import MaterialReviewPanel from "@/components/materials/MaterialReviewPanel";
 import LearnerNotes from "@/components/materials/LearnerNotes";
 import { useWallet } from "@/hooks/useWallet";
+import { NETWORK_PASSPHRASE } from "@/lib/config/chain";
 
 const FALLBACK_IMAGE = "/images/image2.jpg";
 
@@ -262,6 +263,7 @@ function PurchaseCard({
 	onRequestAccess,
 	onAddToCart,
 	onReport,
+	isNetworkMismatch,
 }) {
 	// NOTE: avoid `overflow-hidden/clip` on any ancestor of this card or
 	// `lg:sticky` will silently stop working (browsers need an overflow-visible
@@ -300,6 +302,8 @@ function PurchaseCard({
 					<>
 						<button
 							type="button"
+							disabled={isNetworkMismatch}
+							title={isNetworkMismatch ? "Switch your wallet to the configured Stellar network before checking out." : undefined}
 							className="w-full sm:w-auto sm:flex-1 px-6 py-2 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-100 transition focus-visible:ring-2 focus-visible:ring-blue-500"
 							onClick={onAddToCart}
 						>
@@ -307,6 +311,8 @@ function PurchaseCard({
 						</button>
 						<button
 							type="button"
+							disabled={isNetworkMismatch}
+							title={isNetworkMismatch ? "Switch your wallet to the configured Stellar network before checking out." : undefined}
 							className="w-full sm:w-auto sm:flex-1 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md transition focus-visible:ring-2 focus-visible:ring-blue-500"
 							onClick={onRequestAccess}
 						>
@@ -565,7 +571,8 @@ export default function MaterialDetailsPage() {
 	const [history, setHistory] = useState([]);
 	const materialQuery = useMaterialDetail(id);
 	const entitlementQuery = useEntitlement(id);
-	const { address } = useWallet();
+	const { address, networkPassphrase } = useWallet();
+	const isNetworkMismatch = Boolean(address && networkPassphrase && networkPassphrase !== NETWORK_PASSPHRASE);
 	const [downloadError, setDownloadError] = useState(null);
 	const [isDownloading, setIsDownloading] = useState(false);
 
@@ -897,8 +904,9 @@ export default function MaterialDetailsPage() {
 											downloadError={downloadError}
 											onDownload={handleDownload}
 											onRequestAccess={() => setShowBuyModal(true)}
-											onAddToCart={() => setShowBuyModal(true)}
-											onReport={() => setShowReportModal(true)}
+							onAddToCart={() => setShowBuyModal(true)}
+							onReport={() => setShowReportModal(true)}
+							isNetworkMismatch={isNetworkMismatch}
 										/>
 									</div>
 								</div>

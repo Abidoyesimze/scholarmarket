@@ -14,6 +14,7 @@ import { WalletStatus } from "@/providers/WalletProvider";
 import { FaShoppingCart, FaExternalLinkAlt, FaCopy, FaCheck, FaPlug } from "react-icons/fa";
 import { getExplorerAccountUrl, isMainnet, getNetworkName } from "@/lib/config/chain";
 import NotificationCenter from "./notifications/NotificationCenter";
+import NetworkMismatchBanner from "./NetworkMismatchBanner";
 
 export default function Navbar() {
 	const [menuOpen, setMenuOpen] = useState(false);
@@ -85,6 +86,7 @@ export default function Navbar() {
 	}, [menuOpen]);
 
 	return (
+		<>
 		<header 
 			className={`fixed top-0 left-0 right-0 flex justify-center py-4 px-4 md:px-0 z-[100] transition-all duration-300 ${
 				scrolled ? "bg-white/10 backdrop-blur-xl py-3" : "bg-transparent"
@@ -302,5 +304,7 @@ export default function Navbar() {
 				)}
 			</motion.nav>
 		</header>
+		<NetworkMismatchBanner />
+		</>
 	);
 }
