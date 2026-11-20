@@ -41,14 +41,13 @@ function createTransporter() {
  * @returns {Promise<void>}
  */
 export async function sendInactivityReminder(to, name, inactiveDays, stats, options = {}) {
-  const { notificationPreferences, user } = options;
+  const { notificationPreferences, user, sendMail } = options;
   if (!isNotificationEnabled(notificationPreferences || user, "reminders")) {
     return { sent: false, reason: "reminders_disabled" };
   }
 
   const defaultFrom = process.env.EMAIL_USER || "no-reply@scholarmarket.local";
   const from = process.env.EMAIL_FROM || defaultFrom;
-  const transporter = createTransporter();
 
   const { subject, text, html, headers } = renderInactivityReminderEmail({
     to,
@@ -57,6 +56,12 @@ export async function sendInactivityReminder(to, name, inactiveDays, stats, opti
     stats,
   });
 
-  await transporter.sendMail({ from, to, subject, text, html, headers });
+  const message = { from, to, subject, text, html, headers };
+  if (typeof sendMail === "function") {
+    await sendMail(message);
+  } else {
+    const transporter = createTransporter();
+    await transporter.sendMail(message);
+  }
   return { sent: true };
 }

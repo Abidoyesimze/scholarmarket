@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 import {
   getDefaultNotificationPreferences,
@@ -12,28 +11,6 @@ process.env.EMAIL_USER = "test@example.com";
 process.env.EMAIL_PASS = "test-password";
 process.env.UNSUBSCRIBE_SECRET = "test-unsubscribe-secret";
 globalThis.__sentMail = [];
-const nodemailerStub =
-  "data:text/javascript," +
-  encodeURIComponent(`
-    export default {
-      createTransport() {
-        return {
-          async sendMail(message) {
-            globalThis.__sentMail.push(message);
-          },
-        };
-      },
-    };
-  `);
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "nodemailer") {
-      return { url: nodemailerStub, shortCircuit: true };
-    }
-    return nextResolve(specifier, context);
-  },
-});
 
 const { sendInactivityReminder } = await import(
   "../../src/lib/email/inactivityReminder.js"
@@ -100,7 +77,10 @@ describe("notification preferences", () => {
       "Creator",
       200,
       stats,
-      { notificationPreferences: { reminders: false } }
+      {
+        notificationPreferences: { reminders: false },
+        sendMail: (message) => globalThis.__sentMail.push(message),
+      }
     );
     assert.equal(skipped.sent, false);
     assert.equal(globalThis.__sentMail.length, 0);
@@ -110,7 +90,10 @@ describe("notification preferences", () => {
       "Creator",
       200,
       stats,
-      { notificationPreferences: { reminders: true } }
+      {
+        notificationPreferences: { reminders: true },
+        sendMail: (message) => globalThis.__sentMail.push(message),
+      }
     );
     assert.equal(sent.sent, true);
     assert.equal(globalThis.__sentMail.length, 1);
